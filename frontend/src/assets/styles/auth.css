@@ -1,0 +1,141 @@
+
+/* RESET */
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:"Poppins",sans-serif;
+}
+
+/* MAIN CONTAINER */
+
+.auth-container{
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  padding:20px;
+  background:linear-gradient(135deg,#0f172a,#1e293b,#334155);
+}
+
+/* AUTH CARD */
+
+.auth-box{
+  width:100%;
+  max-width:420px;
+  background:rgba(255,255,255,0.05);
+  backdrop-filter:blur(10px);
+  border-radius:12px;
+  padding:40px 35px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.4);
+  text-align:center;
+  color:white;
+}
+
+/* TITLE */
+
+.auth-box h2{
+  margin-bottom:25px;
+  font-size:28px;
+}
+
+/* FORM */
+
+.auth-box form{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* INPUT */
+
+.auth-box input{
+  padding:12px 14px;
+  border-radius:6px;
+  border:none;
+  outline:none;
+  font-size:14px;
+  background:rgba(255,255,255,0.1);
+  color:white;
+}
+
+/* PLACEHOLDER */
+
+.auth-box input::placeholder{
+  color:rgba(255,255,255,0.7);
+}
+
+/* INPUT FOCUS */
+
+.auth-box input:focus{
+  background:rgba(255,255,255,0.15);
+}
+
+/* SUBMIT BUTTON */
+
+.auth-box button[type="submit"]{
+  margin-top:10px;
+  padding:12px;
+  border:none;
+  border-radius:25px;
+  background:#f43f5e;
+  color:white;
+  font-size:15px;
+  cursor:pointer;
+  transition:0.3s;
+  box-shadow:0 6px 20px rgba(0,0,0,0.35);
+}
+
+.auth-box button[type="submit"]:hover{
+  background:#e11d48;
+  transform:translateY(-1px);
+}
+
+/* SWITCH TEXT */
+
+.auth-box p{
+  margin-top:20px;
+  font-size:14px;
+  color:rgba(255,255,255,0.8);
+}
+
+.auth-box span{
+  color:#f43f5e;
+  font-weight:500;
+  margin-left:5px;
+  cursor:pointer;
+}
+
+/* BACK BUTTON */
+
+.auth-box button:last-child{
+  margin-top:15px;
+  padding:10px;
+  border:none;
+  border-radius:6px;
+  background:rgba(255,255,255,0.1);
+  color:white;
+  cursor:pointer;
+  transition:0.25s;
+}
+
+.auth-box button:last-child:hover{
+  background:rgba(255,255,255,0.2);
+}
+
+/* ---------------- */
+/* MOBILE */
+/* ---------------- */
+
+@media (max-width:600px){
+
+  .auth-box{
+    padding:30px 25px;
+  }
+
+  .auth-box h2{
+    font-size:24px;
+  }
+
+}

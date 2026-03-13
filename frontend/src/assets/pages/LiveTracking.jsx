@@ -1,0 +1,596 @@
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import axios from "axios";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Polyline,
+  useMap,
+} from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import "../styles/ride.css";
+import "../styles/LiveTracking.css";
+import Navbar from "../components/Navbar";
+
+const API = "http://localhost:5000/api";
+const STOPPED_THRESHOLD_M  = 50;   // metres — if moved less than this in 5 min → "are you okay?"
+const STOPPED_TIMEOUT_MS   = 5 * 60 * 1000;
+const SOS_AUTO_DELAY_MS    = 30 * 1000;
+const RECALC_INTERVAL_MS   = 30 * 1000;
+const DEST_RADIUS_M        = 200;  // metres — "you've arrived"
+
+function getToken() { return localStorage.getItem("token"); }
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function haversineM(a, b) {
+  const R = 6371000;
+  const dLat = ((b[0] - a[0]) * Math.PI) / 180;
+  const dLng = ((b[1] - a[1]) * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a[0] * Math.PI) / 180) *
+    Math.cos((b[0] * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+function haversineKm(a, b) { return haversineM(a, b) / 1000; }
+
+function buildCumDists(coords) {
+  const d = [0];
+  for (let i = 1; i < coords.length; i++)
+    d.push(d[i - 1] + haversineKm(coords[i - 1], coords[i]));
+  return d;
+}
+
+function closestIdx(coords, pt) {
+  let min = Infinity, idx = 0;
+  coords.forEach((c, i) => {
+    const d = haversineM(c, pt);
+    if (d < min) { min = d; idx = i; }
+  });
+  return idx;
+}
+
+function fmtTime(secs) {
+  const m = Math.floor(secs / 60).toString().padStart(2, "0");
+  const s = (secs % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function fmtMin(mins) {
+  if (!mins || mins <= 0) return "0 min";
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+function isNightTime() {
+  const h = new Date().getHours();
+  return h >= 22 || h < 5;
+}
+
+// ── Map auto-follow ───────────────────────────────────────────────────────────
+function MapFollower({ center, autoFollow }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center && autoFollow) map.setView(center, map.getZoom());
+  }, [center, autoFollow]);
+  return null;
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+export default function LiveTracking() {
+  const { rideId } = useParams();
+  const navigate   = useNavigate();
+
+  // Ride data
+  const [ride, setRide]                 = useState(null);
+  const [route, setRoute]               = useState([]);
+  const [policeStations, setPoliceStations] = useState([]);
+  const [loadError, setLoadError]       = useState("");
+
+  // Live position
+  const [currentPos, setCurrentPos]     = useState(null);
+  const [speed, setSpeed]               = useState(0);         // km/h
+  const [heading, setHeading]           = useState(null);
+
+  // Ride metrics
+  const [rideTime, setRideTime]         = useState(0);         // seconds elapsed
+  const [distCovered, setDistCovered]   = useState(0);         // km
+  const [remainingDist, setRemainingDist] = useState(null);    // km
+  const [remainingEta, setRemainingEta] = useState(null);      // min
+  const [progress, setProgress]         = useState(0);         // 0–100
+
+  // Safety states
+  const [offRoute, setOffRoute]         = useState(false);
+  const [arrived, setArrived]           = useState(false);
+  const [stoppedAlert, setStoppedAlert] = useState(false);     // "are you okay?"
+  const [sosCountdown, setSosCountdown] = useState(null);      // seconds until auto-SOS
+  const [batteryWarn, setBatteryWarn]   = useState(false);
+  const [nightMode, setNightMode]       = useState(isNightTime());
+
+  // UI
+  const [autoFollow, setAutoFollow]     = useState(true);
+  const [sosActive, setSosActive]       = useState(false);
+  const [sosMsg, setSosMsg]             = useState("");
+  const [quickMsg, setQuickMsg]         = useState("");
+
+  // Refs for intervals / last position
+  const lastPosRef       = useRef(null);
+  const lastMoveTimeRef  = useRef(Date.now());
+  const stoppedTimerRef  = useRef(null);
+  const sosCountdownRef  = useRef(null);
+  const cumDistsRef      = useRef([]);
+  const routeRef         = useRef([]);
+  const destRef          = useRef(null);
+
+  // ── Load ride & route ──────────────────────────────────────────────────────
+  useEffect(() => {
+    axios.get(`${API}/rides/${rideId}`)
+      .then(async res => {
+        const d = res.data;
+        setRide(d);
+
+        const sLat = d?.startLocation?.lat ?? d?.startLocation?.coordinates?.[1];
+        const sLng = d?.startLocation?.lng ?? d?.startLocation?.coordinates?.[0];
+        const eLat = d?.endLocation?.lat   ?? d?.endLocation?.coordinates?.[1];
+        const eLng = d?.endLocation?.lng   ?? d?.endLocation?.coordinates?.[0];
+
+        if (sLat && sLng && eLat && eLng) {
+          destRef.current = [eLat, eLng];
+          await fetchRoute([sLat, sLng], [eLat, eLng]);
+        }
+      })
+      .catch(() => setLoadError("Could not load ride data."));
+  }, [rideId]);
+
+  const fetchRoute = async (start, end) => {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end[1]},${end[0]}?overview=full&geometries=geojson`;
+      const res = await axios.get(url);
+      const coords = res.data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      setRoute(coords);
+      routeRef.current = coords;
+      cumDistsRef.current = buildCumDists(coords);
+
+      // Fetch police stations along route
+      fetchPoliceStations(coords);
+    } catch (e) { console.error("Route fetch failed", e); }
+  };
+
+  const fetchPoliceStations = async (coords) => {
+    const lats = coords.map(c => c[0]);
+    const lngs = coords.map(c => c[1]);
+    const minLat = (Math.min(...lats) - 0.01).toFixed(6);
+    const maxLat = (Math.max(...lats) + 0.01).toFixed(6);
+    const minLng = (Math.min(...lngs) - 0.01).toFixed(6);
+    const maxLng = (Math.max(...lngs) + 0.01).toFixed(6);
+    const query = `[out:json][timeout:15];(node["amenity"="police"](${minLat},${minLng},${maxLat},${maxLng}););out body;`;
+    try {
+      const res = await axios.post("https://overpass-api.de/api/interpreter", query,
+        { headers: { "Content-Type": "text/plain" }, timeout: 15000 });
+      const nodes = res.data?.elements || [];
+      const cumDists = buildCumDists(coords);
+      const total = cumDists[cumDists.length - 1];
+      const stations = nodes.map(n => {
+        const idx = closestIdx(coords, [n.lat, n.lon]);
+        const distKm = cumDists[idx];
+        return {
+          name: n.tags?.name || "Police Station",
+          distKm,
+          pct: distKm / total
+        };
+      }).filter(s => {
+        const idx = closestIdx(coords, [coords[Math.round(s.pct * (coords.length - 1))][0],
+                                        coords[Math.round(s.pct * (coords.length - 1))][1]]);
+        return haversineM([nodes.find(n => {
+          const i2 = closestIdx(coords, [n.lat, n.lon]);
+          return Math.abs(cumDists[i2] - s.distKm) < 0.01;
+        })?.lat || 0, nodes.find(n => {
+          const i2 = closestIdx(coords, [n.lat, n.lon]);
+          return Math.abs(cumDists[i2] - s.distKm) < 0.01;
+        })?.lon || 0], coords[closestIdx(coords, [s.distKm, s.distKm])]) < 500 || true;
+      });
+      const seen = new Set();
+      setPoliceStations(
+        stations
+          .sort((a, b) => a.distKm - b.distKm)
+          .filter(s => {
+            const key = Math.round(s.distKm * 2);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+      );
+    } catch { /* Overpass down — skip */ }
+  };
+
+  // ── Ride timer ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const t = setInterval(() => setRideTime(p => p + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Night mode check ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const t = setInterval(() => setNightMode(isNightTime()), 60000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Battery warning ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if ("getBattery" in navigator) {
+      navigator.getBattery().then(b => {
+        setBatteryWarn(b.level < 0.15 && !b.charging);
+        b.addEventListener("levelchange", () => {
+          setBatteryWarn(b.level < 0.15 && !b.charging);
+        });
+      });
+    }
+  }, []);
+
+  // ── Recalculate remaining distance / ETA every 30s ─────────────────────────
+  const recalcMetrics = useCallback((pos) => {
+    const coords = routeRef.current;
+    const cumDists = cumDistsRef.current;
+    if (!coords.length || !cumDists.length) return;
+
+    const totalDist = cumDists[cumDists.length - 1];
+    const idx = closestIdx(coords, pos);
+    const coveredKm = cumDists[idx];
+    const leftKm = Math.max(0, totalDist - coveredKm);
+    const pct = Math.min(100, Math.round((coveredKm / totalDist) * 100));
+
+    setDistCovered(coveredKm.toFixed(1));
+    setRemainingDist(leftKm.toFixed(1));
+    setProgress(pct);
+
+    // ETA: remaining distance / average 30 km/h with traffic
+    const etaMin = Math.round((leftKm / 30) * 60 * 1.4);
+    setRemainingEta(etaMin);
+
+    // Off-route check — distance from closest route point
+    const closestPoint = coords[idx];
+    const offM = haversineM(pos, closestPoint);
+    setOffRoute(offM > 300);
+
+    // Arrived check
+    if (destRef.current) {
+      const distToDest = haversineM(pos, destRef.current);
+      if (distToDest < DEST_RADIUS_M) setArrived(true);
+    }
+  }, []);
+
+  // ── Live location tracking ──────────────────────────────────────────────────
+  useEffect(() => {
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const spd = pos.coords.speed ? +(pos.coords.speed * 3.6).toFixed(1) : 0;
+        const hdg = pos.coords.heading;
+
+        setCurrentPos([lat, lng]);
+        setSpeed(spd);
+        setHeading(hdg);
+
+        // Update backend
+        axios.post(`${API}/rides/update-location`, { rideId, lat, lng })
+          .catch(() => {});
+
+        // Recalculate metrics
+        recalcMetrics([lat, lng]);
+
+        // Stopped detection
+        if (lastPosRef.current) {
+          const moved = haversineM(lastPosRef.current, [lat, lng]);
+          if (moved > STOPPED_THRESHOLD_M) {
+            lastMoveTimeRef.current = Date.now();
+            // Cancel any pending stopped alert
+            if (stoppedTimerRef.current) {
+              clearTimeout(stoppedTimerRef.current);
+              stoppedTimerRef.current = null;
+            }
+            setStoppedAlert(false);
+            if (sosCountdownRef.current) {
+              clearInterval(sosCountdownRef.current);
+              sosCountdownRef.current = null;
+              setSosCountdown(null);
+            }
+          }
+        }
+        lastPosRef.current = [lat, lng];
+
+        // Set stopped timer if not already set
+        if (!stoppedTimerRef.current) {
+          stoppedTimerRef.current = setTimeout(() => {
+            setStoppedAlert(true);
+            // Start 30s countdown to auto-SOS
+            let count = 30;
+            setSosCountdown(count);
+            sosCountdownRef.current = setInterval(() => {
+              count--;
+              setSosCountdown(count);
+              if (count <= 0) {
+                clearInterval(sosCountdownRef.current);
+                sosCountdownRef.current = null;
+                setSosCountdown(null);
+                setStoppedAlert(false);
+                handleSOS(true); // auto trigger
+              }
+            }, 1000);
+          }, STOPPED_TIMEOUT_MS);
+        }
+      },
+      (err) => console.error("Geolocation error", err),
+      { enableHighAccuracy: true, maximumAge: 5000 }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      if (stoppedTimerRef.current)  clearTimeout(stoppedTimerRef.current);
+      if (sosCountdownRef.current)  clearInterval(sosCountdownRef.current);
+    };
+  }, [rideId, recalcMetrics]);
+
+  // ── SOS ────────────────────────────────────────────────────────────────────
+  const handleSOS = async (auto = false) => {
+    setSosActive(true);
+    setSosMsg("📡 Getting location...");
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const res = await axios.post(`${API}/profile/sos`,
+          { lat: pos.coords.latitude, lng: pos.coords.longitude, rideId },
+          { headers: { Authorization: `Bearer ${getToken()}` } }
+        );
+        const { contacts, location, userName } = res.data;
+        const msg = auto
+          ? `🚨 AUTO-ALERT: ${userName} may need help! No movement detected. Location: ${location.mapsLink}`
+          : `🚨 SOS from ${userName}! I need help. Location: ${location.mapsLink}`;
+        contacts.forEach((c, i) => {
+          setTimeout(() => {
+            window.open(`https://wa.me/${c.phone.replace(/\D/g,"")}?text=${encodeURIComponent(msg)}`, "_blank");
+          }, i * 800);
+        });
+        setSosMsg(`✅ SOS sent to ${contacts.length} contact(s)`);
+      } catch (e) {
+        setSosMsg(e.response?.data?.message || "❌ SOS failed. Call 100 directly.");
+      }
+      setTimeout(() => { setSosActive(false); setSosMsg(""); }, 5000);
+    }, () => {
+      setSosMsg("❌ Could not get location. Call 100 directly.");
+      setTimeout(() => { setSosActive(false); setSosMsg(""); }, 4000);
+    });
+  };
+
+  // ── Quick message ──────────────────────────────────────────────────────────
+  const sendQuickMsg = async (type) => {
+    const msgs = {
+      safe:  "✅ I'm safe and on my way!",
+      late:  "⏰ I'm running a bit late, don't worry!",
+      help:  "🆘 I need help, please call me!",
+    };
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const res = await axios.post(`${API}/profile/sos`,
+          { lat: pos.coords.latitude, lng: pos.coords.longitude, rideId },
+          { headers: { Authorization: `Bearer ${getToken()}` } }
+        );
+        const { contacts, location, userName } = res.data;
+        const text = `${msgs[type]} — ${userName}. My location: ${location.mapsLink}`;
+        contacts.forEach((c, i) => {
+          setTimeout(() => {
+            window.open(`https://wa.me/${c.phone.replace(/\D/g,"")}?text=${encodeURIComponent(text)}`, "_blank");
+          }, i * 600);
+        });
+        setQuickMsg(`✅ "${msgs[type]}" sent`);
+        setTimeout(() => setQuickMsg(""), 3000);
+      } catch {
+        setQuickMsg("❌ Could not send message");
+        setTimeout(() => setQuickMsg(""), 3000);
+      }
+    });
+  };
+
+  // ── Stop ride ──────────────────────────────────────────────────────────────
+  const stopRide = async () => {
+    try {
+      await axios.post(`${API}/rides/stop`, { rideId });
+      navigate("/dashboard");
+    } catch { alert("Could not stop ride. Please try again."); }
+  };
+
+  // ── Dismiss stopped alert ──────────────────────────────────────────────────
+  const dismissStoppedAlert = () => {
+    setStoppedAlert(false);
+    setSosCountdown(null);
+    if (sosCountdownRef.current) { clearInterval(sosCountdownRef.current); sosCountdownRef.current = null; }
+    if (stoppedTimerRef.current) { clearTimeout(stoppedTimerRef.current);  stoppedTimerRef.current = null; }
+    lastMoveTimeRef.current = Date.now();
+  };
+
+  // ── Next police station ahead ──────────────────────────────────────────────
+  const nextStation = policeStations.find(s => {
+    if (!currentPos || !routeRef.current.length) return false;
+    const idx = closestIdx(routeRef.current, currentPos);
+    const coveredKm = cumDistsRef.current[idx] || 0;
+    return s.distKm > coveredKm;
+  });
+
+  // ── Loading / error states ─────────────────────────────────────────────────
+  if (loadError) return (
+    <><Navbar /><div className="ride-container"><div className="ride-error">⚠️ {loadError}</div></div></>
+  );
+  if (!ride) return (
+    <><Navbar /><div className="ride-container"><div className="lt-loading"><div className="lt-spinner" /><p>Loading ride…</p></div></div></>
+  );
+
+  return (
+    <>
+      <Navbar />
+      <div className="ride-container lt-container">
+
+        {/* ── Night mode banner ── */}
+        {nightMode && (
+          <div className="lt-banner lt-banner-night">
+            🌙 Night ride in progress — stay alert and ride safely
+          </div>
+        )}
+
+        {/* ── Battery warning ── */}
+        {batteryWarn && (
+          <div className="lt-banner lt-banner-battery">
+            🔋 Low battery — your live location may stop updating soon
+          </div>
+        )}
+
+        {/* ── Off route alert ── */}
+        {offRoute && (
+          <div className="lt-banner lt-banner-warn">
+            ⚠️ You've left the planned route
+          </div>
+        )}
+
+        {/* ── Arrived banner ── */}
+        {arrived && (
+          <div className="lt-banner lt-banner-arrived">
+            🎉 You've arrived at your destination!
+            <button onClick={stopRide}>End Ride</button>
+          </div>
+        )}
+
+        {/* ── Stopped alert modal ── */}
+        {stoppedAlert && (
+          <div className="lt-modal-overlay">
+            <div className="lt-modal">
+              <div className="lt-modal-icon">🤔</div>
+              <h3>Are you okay?</h3>
+              <p>No movement detected for 5 minutes.</p>
+              {sosCountdown !== null && (
+                <p className="lt-modal-countdown">
+                  Auto-alerting contacts in <strong>{sosCountdown}s</strong>
+                </p>
+              )}
+              <div className="lt-modal-btns">
+                <button className="lt-modal-ok" onClick={dismissStoppedAlert}>
+                  ✅ I'm okay
+                </button>
+                <button className="lt-modal-sos" onClick={() => { dismissStoppedAlert(); handleSOS(); }}>
+                  🆘 Send SOS
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Title ── */}
+        <h2 className="ride-title">Live Tracking</h2>
+
+        {/* ── Metrics row ── */}
+        <div className="lt-metrics">
+          <div className="lt-metric">
+            <span className="lt-metric-icon">⏱️</span>
+            <span className="lt-metric-val">{fmtTime(rideTime)}</span>
+            <span className="lt-metric-label">Elapsed</span>
+          </div>
+          <div className="lt-metric">
+            <span className="lt-metric-icon">🚀</span>
+            <span className="lt-metric-val">{speed}<span className="lt-unit"> km/h</span></span>
+            <span className="lt-metric-label">Speed</span>
+          </div>
+          <div className="lt-metric">
+            <span className="lt-metric-icon">📏</span>
+            <span className="lt-metric-val">{distCovered}<span className="lt-unit"> km</span></span>
+            <span className="lt-metric-label">Covered</span>
+          </div>
+          <div className="lt-metric">
+            <span className="lt-metric-icon">🏁</span>
+            <span className="lt-metric-val">{remainingDist ?? "—"}<span className="lt-unit"> km</span></span>
+            <span className="lt-metric-label">Remaining</span>
+          </div>
+          <div className="lt-metric">
+            <span className="lt-metric-icon">⏰</span>
+            <span className="lt-metric-val">{remainingEta !== null ? fmtMin(remainingEta) : "—"}</span>
+            <span className="lt-metric-label">ETA</span>
+          </div>
+        </div>
+
+        {/* ── Progress bar ── */}
+        <div className="lt-progress-wrap">
+          <div className="lt-progress-bar">
+            <div className="lt-progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+          <span className="lt-progress-pct">{progress}%</span>
+        </div>
+
+        {/* ── Ride info ── */}
+        <div className="ride-info lt-info">
+          <p>📍 <strong>{ride.destinationName || "—"}</strong></p>
+          <p>🚗 {ride.vehicleType || "Bike"}</p>
+          {nextStation && (
+            <p className="lt-next-station">
+              🚔 Next police station: <strong>{nextStation.name}</strong>
+              {" "}— {(nextStation.distKm - (parseFloat(distCovered) || 0)).toFixed(1)} km ahead
+            </p>
+          )}
+        </div>
+
+        {/* ── Map ── */}
+        {currentPos && (
+          <div className="map-wrapper">
+            <div className="lt-map-controls">
+              <button
+                className={`lt-follow-btn ${autoFollow ? "active" : ""}`}
+                onClick={() => setAutoFollow(p => !p)}
+                title="Toggle auto-follow"
+              >
+                {autoFollow ? "🔒 Following" : "🔓 Free"}
+              </button>
+            </div>
+            <MapContainer center={currentPos} zoom={15} style={{ height: "100%", width: "100%" }}>
+              <MapFollower center={currentPos} autoFollow={autoFollow} />
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <Marker position={currentPos} />
+              {destRef.current && <Marker position={destRef.current} />}
+              {route.length > 0 && (
+                <Polyline positions={route} pathOptions={{ color: "#3b82f6", weight: 5, opacity: 0.85 }} />
+              )}
+            </MapContainer>
+          </div>
+        )}
+
+        {/* ── Quick messages ── */}
+        <div className="lt-quick-section">
+          <p className="lt-quick-label">Quick message to contacts:</p>
+          <div className="lt-quick-btns">
+            <button className="lt-quick-btn lt-quick-safe" onClick={() => sendQuickMsg("safe")}>✅ I'm Safe</button>
+            <button className="lt-quick-btn lt-quick-late" onClick={() => sendQuickMsg("late")}>⏰ Running Late</button>
+            <button className="lt-quick-btn lt-quick-help" onClick={() => sendQuickMsg("help")}>🆘 Need Help</button>
+          </div>
+          {quickMsg && <p className="lt-quick-msg">{quickMsg}</p>}
+        </div>
+
+        {/* ── SOS + Stop ── */}
+        <div className="lt-actions">
+          <button
+            className={`lt-sos-btn ${sosActive ? "active" : ""}`}
+            onClick={() => handleSOS()}
+            disabled={sosActive}
+          >
+            <span className="lt-sos-ring" />
+            <span className="lt-sos-ring lt-sos-ring2" />
+            {sosActive ? "Sending…" : "🆘 SOS"}
+          </button>
+
+          <button className="ride-btn stop-btn" onClick={stopRide}>
+            ⏹ Stop Ride
+          </button>
+        </div>
+
+        {sosMsg && <div className="lt-sos-msg">{sosMsg}</div>}
+
+      </div>
+    </>
+  );
+}
