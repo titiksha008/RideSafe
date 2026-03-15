@@ -6,10 +6,9 @@
   color: #e2e8f0;
   font-family: 'DM Sans', sans-serif;
   padding-bottom: 60px;
-  padding-top: 65px; /* offset for fixed navbar */
+  padding-top: 65px;
 }
 
-/* ── Home button — lives inside ps-header, pushed to far right ── */
 .ps-home-btn {
   margin-left: auto;
   background: rgba(255,255,255,0.06);
@@ -31,7 +30,6 @@
   border-color: rgba(255,255,255,0.2);
 }
 
-/* ── Header ── */
 .ps-header {
   display: flex;
   align-items: center;
@@ -108,7 +106,6 @@
   font-size: 12px;
 }
 
-/* ── Nav ── */
 .ps-nav {
   display: flex;
   padding: 0 40px;
@@ -138,7 +135,6 @@
   color: #94a3b8;
 }
 
-/* ── Toast ── */
 .ps-toast {
   margin: 16px 40px 0;
   padding: 12px 20px;
@@ -149,7 +145,6 @@
   font-size: 14px;
 }
 
-/* ── Section — FULL WIDTH ── */
 .ps-section {
   padding: 32px 40px;
   width: 100%;
@@ -177,7 +172,6 @@
   line-height: 1.6;
 }
 
-/* ── Grid — uses full width ── */
 .ps-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -197,7 +191,6 @@
   .ps-toast { margin: 12px 18px 0; }
 }
 
-/* ── Fields ── */
 .ps-field {
   display: flex;
   flex-direction: column;
@@ -241,7 +234,6 @@
   cursor: not-allowed !important;
 }
 
-/* ── Vehicle buttons ── */
 .ps-vehicle-options {
   display: flex;
   gap: 10px;
@@ -266,7 +258,6 @@
   color: #93c5fd;
 }
 
-/* ── Toggles ── */
 .ps-toggles {
   margin: 22px 0;
   display: grid;
@@ -327,7 +318,6 @@
 
 .ps-toggle.on .ps-toggle-thumb { transform: translateX(20px); }
 
-/* ── Save button ── */
 .ps-save-btn {
   margin-top: 24px;
   width: 100%;
@@ -353,7 +343,6 @@
 
 .ps-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Error / success ── */
 .ps-error {
   color: #fca5a5;
   font-size: 13px;
@@ -372,7 +361,6 @@
   border-radius: 6px;
 }
 
-/* ── Logout ── */
 .ps-logout-wrap {
   margin-top: 36px;
   border-top: 1px solid rgba(255,255,255,0.07);
@@ -393,7 +381,6 @@
 
 .ps-logout-btn:hover { background: rgba(239,68,68,0.2); }
 
-/* ── Contact cards ── */
 .ps-contact-card {
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.08);
@@ -411,7 +398,7 @@
   margin-bottom: 14px;
 }
 
-/* ── Helplines ── */
+/* ── Helplines — default (used in Contacts tab) ── */
 .ps-helplines {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -539,9 +526,24 @@
 
 .ps-sos-info-item span { font-size: 22px; flex-shrink: 0; }
 .ps-sos-info-item p { margin: 0; font-size: 12px; color: #64748b; line-height: 1.5; }
-/* ── Add these to your existing ProfileSafety.css ── */
 
-/* Read-only field value (replaces input when not editing) */
+/* ── Helplines inside SOS section — force single row ── */
+.ps-sos-section .ps-helplines {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.ps-sos-section .ps-helpline-card {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Read-only field value ── */
 .ps-field-value {
   margin: 0;
   padding: 10px 14px;
@@ -558,7 +560,7 @@
   color: var(--text-muted, #64748b);
 }
 
-/* Edit Profile button — sits under the name in the header */
+/* ── Edit Profile button ── */
 .ps-edit-profile-btn {
   margin-top: 8px;
   padding: 5px 14px;
@@ -580,7 +582,7 @@
   border-color: #818cf8;
 }
 
-/* Cancel button — sits next to Save Profile */
+/* ── Cancel button ── */
 .ps-cancel-btn {
   padding: 12px 24px;
   font-size: 15px;

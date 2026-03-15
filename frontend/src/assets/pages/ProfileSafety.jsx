@@ -59,10 +59,14 @@ export default function ProfileSafety() {
     notifications: true, profilePhoto: ""
   });
 
-  // ── Edit mode: false = view/saved, true = editing ─────────────────────────
-  // Persist across navigation — if profile was ever saved, start in view mode
+  // ── Edit mode for profile ─────────────────────────────────────────────────
   const [isEditing, setIsEditing] = useState(
     () => localStorage.getItem("profileSaved") !== "true"
+  );
+
+  // ── Edit mode for contacts ────────────────────────────────────────────────
+  const [isEditingContacts, setIsEditingContacts] = useState(
+    () => localStorage.getItem("contactsSaved") !== "true"
   );
 
   const [pwForm, setPwForm]       = useState({ currentPassword: "", newPassword: "", confirm: "" });
@@ -116,7 +120,6 @@ export default function ProfileSafety() {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
       setSaveMsg("✅ Profile saved successfully");
-      // Switch to view mode and remember it
       setIsEditing(false);
       localStorage.setItem("profileSaved", "true");
     } catch {
@@ -152,6 +155,9 @@ export default function ProfileSafety() {
         { headers: { Authorization: `Bearer ${getToken()}` } }
       );
       setSaveMsg("✅ Emergency contacts saved");
+      // Switch to view mode and remember it
+      setIsEditingContacts(false);
+      localStorage.setItem("contactsSaved", "true");
     } catch { setSaveMsg("❌ Failed to save contacts"); }
     setSaving(false);
     setTimeout(() => setSaveMsg(""), 3000);
@@ -203,6 +209,8 @@ export default function ProfileSafety() {
     { id: "sos",      label: "🆘 SOS" },
   ];
 
+  const contactsSavedBefore = localStorage.getItem("contactsSaved") === "true";
+
   return (
     <>
       <Navbar />
@@ -227,7 +235,6 @@ export default function ProfileSafety() {
             <span className="ps-vehicle-badge">
               {VEHICLE_OPTIONS.find(v => v.value === profile.vehicleType)?.label || "🏍️ Bike"}
             </span>
-            {/* Edit Profile button — only shown when NOT editing */}
             {!isEditing && activeSection === "profile" && (
               <button
                 className="ps-edit-profile-btn"
@@ -361,13 +368,11 @@ export default function ProfileSafety() {
               </div>
             </div>
 
-            {/* Save button only shown while editing */}
             {isEditing && (
               <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "8px" }}>
                 <button className="ps-save-btn" onClick={saveProfile} disabled={saving}>
                   {saving ? "Saving…" : "Save Profile"}
                 </button>
-                {/* Cancel — only show if profile was previously saved */}
                 {localStorage.getItem("profileSaved") === "true" && (
                   <button
                     className="ps-cancel-btn"
@@ -410,6 +415,7 @@ export default function ProfileSafety() {
               <button className="ps-logout-btn" onClick={() => {
                 localStorage.removeItem("token");
                 localStorage.removeItem("profileSaved");
+                localStorage.removeItem("contactsSaved");
                 navigate("/auth");
               }}>
                 🚪 Logout
@@ -421,40 +427,73 @@ export default function ProfileSafety() {
         {/* ══ CONTACTS ══ */}
         {activeSection === "contacts" && (
           <div className="ps-section">
-            <h3 className="ps-section-title">Emergency Contacts</h3>
+            {/* Title row with inline Edit button when saved */}
+            <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "8px" }}>
+              <h3 className="ps-section-title" style={{ margin: 0 }}>Emergency Contacts</h3>
+              {!isEditingContacts && contactsSavedBefore && (
+                <button
+                  className="ps-edit-profile-btn"
+                  onClick={() => setIsEditingContacts(true)}
+                >
+                  ✏️ Edit Contacts
+                </button>
+              )}
+            </div>
             <p className="ps-section-sub">
               Add up to 3 trusted people. SOS will send them both an SMS and a WhatsApp message with your location.
               Enter numbers as 10 digits (e.g. 9876543210) or with country code (+91 9876543210).
             </p>
+
             {contacts.map((c, i) => (
               <div key={i} className="ps-contact-card">
                 <div className="ps-contact-num">Contact {i + 1}</div>
                 <div className="ps-grid">
                   <div className="ps-field">
                     <label>Name</label>
-                    <input value={c.name} onChange={e => updateContact(i, "name", e.target.value)} placeholder="Full name" />
+                    {isEditingContacts
+                      ? <input value={c.name} onChange={e => updateContact(i, "name", e.target.value)} placeholder="Full name" />
+                      : <p className="ps-field-value">{c.name || "—"}</p>
+                    }
                   </div>
                   <div className="ps-field">
                     <label>Phone</label>
-                    <input
-                      value={c.phone}
-                      onChange={e => updateContact(i, "phone", e.target.value)}
-                      placeholder="9876543210"
-                    />
+                    {isEditingContacts
+                      ? <input value={c.phone} onChange={e => updateContact(i, "phone", e.target.value)} placeholder="9876543210" />
+                      : <p className="ps-field-value">{c.phone || "—"}</p>
+                    }
                   </div>
                   <div className="ps-field">
                     <label>Relation</label>
-                    <select value={c.relation} onChange={e => updateContact(i, "relation", e.target.value)}>
-                      <option value="">Select relation</option>
-                      {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
+                    {isEditingContacts
+                      ? (
+                        <select value={c.relation} onChange={e => updateContact(i, "relation", e.target.value)}>
+                          <option value="">Select relation</option>
+                          {RELATION_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      )
+                      : <p className="ps-field-value">{c.relation || "—"}</p>
+                    }
                   </div>
                 </div>
               </div>
             ))}
-            <button className="ps-save-btn" onClick={saveContacts} disabled={saving}>
-              {saving ? "Saving…" : "Save Contacts"}
-            </button>
+
+            {/* Save / Cancel — only shown while editing */}
+            {isEditingContacts && (
+              <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "4px" }}>
+                <button className="ps-save-btn" onClick={saveContacts} disabled={saving}>
+                  {saving ? "Saving…" : "Save Contacts"}
+                </button>
+                {contactsSavedBefore && (
+                  <button
+                    className="ps-cancel-btn"
+                    onClick={() => setIsEditingContacts(false)}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            )}
 
             <h3 className="ps-section-title" style={{ marginTop: "36px" }}>🇮🇳 Emergency Helplines</h3>
             <div className="ps-helplines">
