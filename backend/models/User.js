@@ -1,3 +1,4 @@
+//User.js
 const mongoose = require("mongoose");
 
 const emergencyContactSchema = new mongoose.Schema({

@@ -2,11 +2,10 @@ const mongoose = require("mongoose");
 
 const rideSchema = new mongoose.Schema({
 
-  // link ride to user
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: false // not required so existing rides don't break
+    required: false
   },
 
   startLocation: {
@@ -26,8 +25,14 @@ const rideSchema = new mongoose.Schema({
 
   destinationName: { type: String, default: "" },
   vehicleType:     { type: String, default: "" },
+
+  // planned values set at ride start
   distance:        { type: String, default: "0" },
   expectedTime:    { type: Number, default: 0 },
+
+  // actual values filled when ride stops
+  actualDistance:  { type: Number, default: null }, // km actually covered
+  actualTime:      { type: Number, default: null }, // minutes actually taken
 
   status: {
     type: String,

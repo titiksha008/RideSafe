@@ -5,29 +5,32 @@ const User = require("../models/User");
 const auth = require("../middleware/authMiddleware");
 
 // GET /api/dashboard
-// Returns user profile + ride stats + recent rides
 router.get("/", auth, async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // All rides for this user
-    const rides = await Ride.find({ userId: req.userId }).sort({ createdAt: -1 });
-
+    const rides     = await Ride.find({ userId: req.userId }).sort({ createdAt: -1 });
     const completed = rides.filter(r => r.status === "COMPLETED");
     const active    = rides.find(r => r.status === "ACTIVE") || null;
 
-    // Total distance (sum of all completed rides)
+    // ✅ Use actualDistance if available, otherwise fall back to planned distance
     const totalDistance = completed.reduce((sum, r) => {
-      return sum + (parseFloat(r.distance) || 0);
+      const dist = r.actualDistance !== null && r.actualDistance !== undefined
+        ? r.actualDistance
+        : (parseFloat(r.distance) || 0);
+      return sum + dist;
     }, 0);
 
-    // Total time in minutes
+    // ✅ Use actualTime if available, otherwise calculate from startTime/endTime
     const totalTime = completed.reduce((sum, r) => {
+      if (r.actualTime !== null && r.actualTime !== undefined) {
+        return sum + r.actualTime;
+      }
       if (r.startTime && r.endTime) {
         return sum + Math.round((new Date(r.endTime) - new Date(r.startTime)) / 60000);
       }
-      return sum + (r.expectedTime || 0);
+      return sum; // don't add expectedTime — that's just an estimate
     }, 0);
 
     res.json({
@@ -38,7 +41,7 @@ router.get("/", auth, async (req, res) => {
         totalTime,
         activeRide:    active ? active._id : null
       },
-      recentRides: rides.slice(0, 5) // last 5 rides
+      recentRides: rides.slice(0, 5)
     });
 
   } catch (err) {

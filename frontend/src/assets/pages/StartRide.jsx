@@ -14,6 +14,12 @@ import Navbar from "../components/Navbar";
 
 const TRAFFIC_MULTIPLIER = 1.4;
 
+// ── Token helper ──────────────────────────────────────────────────────────────
+function getToken() {
+  return localStorage.getItem("token");
+}
+
+// ── Map re-center ─────────────────────────────────────────────────────────────
 function MapUpdater({ center }) {
   const map = useMap();
   React.useEffect(() => {
@@ -22,6 +28,7 @@ function MapUpdater({ center }) {
   return null;
 }
 
+// ── Haversine helpers ─────────────────────────────────────────────────────────
 function haversine(a, b) {
   const R = 6371;
   const dLat = ((b[0] - a[0]) * Math.PI) / 180;
@@ -35,8 +42,7 @@ function haversine(a, b) {
 }
 
 function closestRouteIndex(routeCoords, point) {
-  let minDist = Infinity;
-  let minIdx = 0;
+  let minDist = Infinity, minIdx = 0;
   routeCoords.forEach((coord, i) => {
     const d = haversine(coord, point);
     if (d < minDist) { minDist = d; minIdx = i; }
@@ -46,36 +52,33 @@ function closestRouteIndex(routeCoords, point) {
 
 function buildCumulativeDistances(routeCoords) {
   const dists = [0];
-  for (let i = 1; i < routeCoords.length; i++) {
+  for (let i = 1; i < routeCoords.length; i++)
     dists.push(dists[i - 1] + haversine(routeCoords[i - 1], routeCoords[i]));
-  }
   return dists;
 }
 
-async function getPoliceStationsAlongRoute(routeCoords, totalEtaMin, totalDistKm) {
-  const lats = routeCoords.map((c) => c[0]);
-  const lngs = routeCoords.map((c) => c[1]);
+// ── Police stations ───────────────────────────────────────────────────────────
+async function getPoliceStationsAlongRoute(routeCoords, totalEtaMin) {
+  const lats = routeCoords.map(c => c[0]);
+  const lngs = routeCoords.map(c => c[1]);
   const minLat = (Math.min(...lats) - 0.01).toFixed(6);
   const maxLat = (Math.max(...lats) + 0.01).toFixed(6);
   const minLng = (Math.min(...lngs) - 0.01).toFixed(6);
   const maxLng = (Math.max(...lngs) + 0.01).toFixed(6);
-
   const query = `[out:json][timeout:15];(node["amenity"="police"](${minLat},${minLng},${maxLat},${maxLng}););out body;`;
 
   try {
     const res = await axios.post(
-      "https://overpass-api.de/api/interpreter",
-      query,
+      "https://overpass-api.de/api/interpreter", query,
       { headers: { "Content-Type": "text/plain" }, timeout: 15000 }
     );
-
     const nodes = res.data?.elements || [];
     if (nodes.length === 0) return [];
 
     const cumDists = buildCumulativeDistances(routeCoords);
     const totalRouteDist = cumDists[cumDists.length - 1];
 
-    const stations = nodes.map((node) => {
+    const stations = nodes.map(node => {
       const idx = closestRouteIndex(routeCoords, [node.lat, node.lon]);
       const distFromStart = cumDists[idx];
       const etaAtStation = Math.round((distFromStart / totalRouteDist) * totalEtaMin);
@@ -83,9 +86,9 @@ async function getPoliceStationsAlongRoute(routeCoords, totalEtaMin, totalDistKm
       return { name, etaAtStation, distFromStart };
     });
 
-    const filtered = stations.filter((s) => {
-      const stationNode = nodes.find(
-        (n) => Math.round((cumDists[closestRouteIndex(routeCoords, [n.lat, n.lon])] / totalRouteDist) * totalEtaMin) === s.etaAtStation
+    const filtered = stations.filter(s => {
+      const stationNode = nodes.find(n =>
+        Math.round((cumDists[closestRouteIndex(routeCoords, [n.lat, n.lon])] / totalRouteDist) * totalEtaMin) === s.etaAtStation
       );
       if (!stationNode) return true;
       const closestIdx = closestRouteIndex(routeCoords, [stationNode.lat, stationNode.lon]);
@@ -95,7 +98,7 @@ async function getPoliceStationsAlongRoute(routeCoords, totalEtaMin, totalDistKm
     const seen = new Set();
     return filtered
       .sort((a, b) => a.etaAtStation - b.etaAtStation)
-      .filter((s) => {
+      .filter(s => {
         const key = Math.round(s.etaAtStation / 2);
         if (seen.has(key)) return false;
         seen.add(key);
@@ -106,6 +109,7 @@ async function getPoliceStationsAlongRoute(routeCoords, totalEtaMin, totalDistKm
   }
 }
 
+// ── Safest route ──────────────────────────────────────────────────────────────
 async function getSafestRoute(originLat, originLng, destLat, destLng) {
   const url = `https://router.project-osrm.org/route/v1/driving/${originLng},${originLat};${destLng},${destLat}?overview=full&geometries=geojson&alternatives=3`;
   const res = await axios.get(url);
@@ -113,12 +117,12 @@ async function getSafestRoute(originLat, originLng, destLat, destLng) {
   if (!routes || routes.length === 0) throw new Error("No routes found");
 
   const scored = await Promise.all(
-    routes.map(async (route) => {
-      const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
+    routes.map(async route => {
+      const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
       const etaMin = Math.round((route.duration / 60) * TRAFFIC_MULTIPLIER);
       const distKm = (route.distance / 1000).toFixed(2);
-      const lats = coords.map((c) => c[0]);
-      const lngs = coords.map((c) => c[1]);
+      const lats = coords.map(c => c[0]);
+      const lngs = coords.map(c => c[1]);
       const minLat = (Math.min(...lats) - 0.01).toFixed(6);
       const maxLat = (Math.max(...lats) + 0.01).toFixed(6);
       const minLng = (Math.min(...lngs) - 0.01).toFixed(6);
@@ -128,12 +132,11 @@ async function getSafestRoute(originLat, originLng, destLat, destLng) {
       let policeScore = 0;
       try {
         const pRes = await axios.post(
-          "https://overpass-api.de/api/interpreter",
-          query,
+          "https://overpass-api.de/api/interpreter", query,
           { headers: { "Content-Type": "text/plain" }, timeout: 12000 }
         );
         policeScore = parseInt(pRes.data?.elements?.[0]?.tags?.total || "0", 10);
-      } catch { /* ignore */ }
+      } catch { /* ignore — Overpass down */ }
 
       return { coords, etaMin, distanceKm: distKm, policeScore, distance: route.distance };
     })
@@ -148,28 +151,30 @@ async function getSafestRoute(originLat, originLng, destLat, destLng) {
   return scored[0];
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
 function StartRide() {
   const navigate = useNavigate();
 
-  const [destination, setDestination] = useState("");
-  const [destinationCoords, setDestinationCoords] = useState(null);
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [route, setRoute] = useState([]);
-  const [distance, setDistance] = useState(null);
-  const [eta, setEta] = useState(null);
+  const [destination, setDestination]       = useState("");
+  const [destinationCoords, setDestCoords]  = useState(null);
+  const [currentLocation, setCurrentLoc]   = useState(null);
+  const [route, setRoute]                   = useState([]);
+  const [distance, setDistance]             = useState(null);
+  const [eta, setEta]                       = useState(null);
   const [policeStations, setPoliceStations] = useState([]);
-  const [rideStarted, setRideStarted] = useState(false);
-  const [savedRideId, setSavedRideId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [locLoading, setLocLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [rideStarted, setRideStarted]       = useState(false);
+  const [savedRideId, setSavedRideId]       = useState(null);
+  const [loading, setLoading]               = useState(false);
+  const [locLoading, setLocLoading]         = useState(false);
+  const [error, setError]                   = useState("");
 
+  // ── Get location ────────────────────────────────────────────────────────────
   const getLocation = () => {
     setLocLoading(true);
     setError("");
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCurrentLocation([pos.coords.latitude, pos.coords.longitude]);
+      pos => {
+        setCurrentLoc([pos.coords.latitude, pos.coords.longitude]);
         setLocLoading(false);
       },
       () => {
@@ -179,6 +184,7 @@ function StartRide() {
     );
   };
 
+  // ── Search ──────────────────────────────────────────────────────────────────
   const searchDestination = async () => {
     if (!currentLocation) { setError("Please get your current location first."); return; }
     if (!destination.trim()) { setError("Please enter a destination."); return; }
@@ -186,7 +192,7 @@ function StartRide() {
     setLoading(true);
     setError("");
     setRoute([]);
-    setDestinationCoords(null);
+    setDestCoords(null);
     setDistance(null);
     setEta(null);
     setPoliceStations([]);
@@ -205,19 +211,14 @@ function StartRide() {
 
       const destLat = parseFloat(geo.data[0].lat);
       const destLng = parseFloat(geo.data[0].lon);
-      setDestinationCoords([destLat, destLng]);
+      setDestCoords([destLat, destLng]);
 
-      const best = await getSafestRoute(
-        currentLocation[0], currentLocation[1], destLat, destLng
-      );
-
+      const best = await getSafestRoute(currentLocation[0], currentLocation[1], destLat, destLng);
       setRoute(best.coords);
       setDistance(best.distanceKm);
       setEta(best.etaMin);
 
-      const stations = await getPoliceStationsAlongRoute(
-        best.coords, best.etaMin, parseFloat(best.distanceKm)
-      );
+      const stations = await getPoliceStationsAlongRoute(best.coords, best.etaMin);
       setPoliceStations(stations);
 
     } catch (err) {
@@ -228,32 +229,48 @@ function StartRide() {
     setLoading(false);
   };
 
+  // ── Start ride — WITH auth token ────────────────────────────────────────────
   const startRide = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/api/rides/start", {
-        lat: currentLocation[0],
-        lng: currentLocation[1],
-        destLat: destinationCoords[0],
-        destLng: destinationCoords[1],
-        destinationName: destination,
-        distance,
-        expectedTime: eta,
-      });
-      setSavedRideId(res.data.ride._id);
+      const res = await axios.post(
+        "http://localhost:5000/api/rides/start",
+        {
+          lat:             currentLocation[0],
+          lng:             currentLocation[1],
+          destLat:         destinationCoords[0],
+          destLng:         destinationCoords[1],
+          destinationName: destination,
+          distance,
+          expectedTime:    eta,
+        },
+        {
+          headers: { Authorization: `Bearer ${getToken()}` }, // ✅ fix: send token
+        }
+      );
+
+      const newRideId = res.data.ride._id;
+      setSavedRideId(newRideId);
       setRideStarted(true);
+
     } catch (err) {
-      console.error(err);
-      setError("Could not start ride. Please try again.");
+      console.error("Start ride error:", err);
+      setError(
+        err.response?.status === 401
+          ? "Session expired. Please log in again."
+          : "Could not start ride. Please try again."
+      );
     }
   };
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <>
-      <Navbar />   {/* ✅ Navbar added */}
+      <Navbar />
 
       <div className="ride-container">
         <h2 className="ride-title">Start Ride</h2>
 
+        {/* Inputs */}
         <div className="ride-inputs">
           <button className="ride-btn location-btn" onClick={getLocation} disabled={locLoading}>
             {locLoading ? "Locating…" : currentLocation ? "📍 Location Found" : "Get Current Location"}
@@ -263,8 +280,8 @@ function StartRide() {
             type="text"
             placeholder="Enter destination"
             value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && searchDestination()}
+            onChange={e => setDestination(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && searchDestination()}
           />
 
           <button className="ride-btn search-btn" onClick={searchDestination} disabled={loading}>
@@ -274,6 +291,7 @@ function StartRide() {
 
         {error && <div className="ride-error">⚠️ {error}</div>}
 
+        {/* Route info */}
         {distance && !loading && (
           <div className="ride-info">
             <p>🛡️ Safest route selected</p>
@@ -295,18 +313,24 @@ function StartRide() {
           </div>
         )}
 
+        {/* Start Ride button — shown after route found */}
         {destinationCoords && !rideStarted && !loading && (
           <button className="ride-btn start-btn" onClick={startRide}>
             Start Ride
           </button>
         )}
 
+        {/* Go To Live Tracking — shown after ride created */}
         {rideStarted && savedRideId && (
-          <button className="ride-btn start-btn" onClick={() => navigate(`/tracking/${savedRideId}`)}>
-            Go To Live Tracking
+          <button
+            className="ride-btn start-btn"
+            onClick={() => navigate(`/tracking/${savedRideId}`)}
+          >
+            Go To Live Tracking →
           </button>
         )}
 
+        {/* Map */}
         {currentLocation && (
           <div className="map-wrapper">
             <MapContainer center={currentLocation} zoom={13} style={{ height: "100%", width: "100%" }}>
