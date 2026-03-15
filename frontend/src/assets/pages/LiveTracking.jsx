@@ -9,7 +9,6 @@ import {
   useMap,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import "../styles/ride.css";
 import "../styles/LiveTracking.css";
 import Navbar from "../components/Navbar";
 
@@ -20,21 +19,17 @@ const DEST_RADIUS_M       = 200;
 
 function getToken() { return localStorage.getItem("token"); }
 
-// ── WhatsApp deep link ────────────────────────────────────────────────────────
 function openWhatsApp(phone, message) {
   let p = phone.replace(/\D/g, "");
   if (p.startsWith("0"))  p = "91" + p.slice(1);
   if (p.length === 10)    p = "91" + p;
   const encoded = encodeURIComponent(message);
-  const deepLink = `whatsapp://send?phone=${p}&text=${encoded}`;
-  const webLink  = `https://wa.me/${p}?text=${encoded}`;
-  window.location.href = deepLink;
+  window.location.href = `whatsapp://send?phone=${p}&text=${encoded}`;
   setTimeout(() => {
-    if (!document.hidden) window.open(webLink, "_blank");
+    if (!document.hidden) window.open(`https://wa.me/${p}?text=${encoded}`, "_blank");
   }, 1500);
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function haversineM(a, b) {
   const R = 6371000;
   const dLat = ((b[0] - a[0]) * Math.PI) / 180;
@@ -101,11 +96,8 @@ export default function LiveTracking() {
   const [loadError, setLoadError]           = useState("");
   const [currentPos, setCurrentPos]         = useState(null);
   const [speed, setSpeed]                   = useState(0);
-
-  // FIX 1: rideTime is initialized from startTime after ride loads, not 0
   const [rideTime, setRideTime]             = useState(0);
   const rideStartTimeRef                    = useRef(null);
-
   const [distCovered, setDistCovered]       = useState(0);
   const [remainingDist, setRemainingDist]   = useState(null);
   const [remainingEta, setRemainingEta]     = useState(null);
@@ -129,36 +121,27 @@ export default function LiveTracking() {
   const routeRef        = useRef([]);
   const destRef         = useRef(null);
 
-  // ── FIX 2: Load ride and immediately initialize timer from startTime ────────
   useEffect(() => {
     axios.get(`${API}/rides/${rideId}`)
       .then(async res => {
         const d = res.data;
         setRide(d);
-
-        // Initialize elapsed timer from ride.startTime so it persists across navigation
         if (d.startTime) {
           const elapsedSecs = Math.floor((Date.now() - new Date(d.startTime).getTime()) / 1000);
           setRideTime(Math.max(0, elapsedSecs));
           rideStartTimeRef.current = new Date(d.startTime).getTime();
         }
-
         const sLat = d?.startLocation?.lat ?? d?.startLocation?.coordinates?.[1];
         const sLng = d?.startLocation?.lng ?? d?.startLocation?.coordinates?.[0];
         const eLat = d?.endLocation?.lat   ?? d?.endLocation?.coordinates?.[1];
         const eLng = d?.endLocation?.lng   ?? d?.endLocation?.coordinates?.[0];
-
         if (sLat && sLng && eLat && eLng) {
           destRef.current = [eLat, eLng];
           await fetchRoute([sLat, sLng], [eLat, eLng]);
-
-          // FIX 3: If ride has a currentLocation, initialize position & metrics immediately
-          // so the map and stats show correctly before geolocation fires
           const cLat = d?.currentLocation?.lat;
           const cLng = d?.currentLocation?.lng;
           if (cLat && cLng) {
             setCurrentPos([cLat, cLng]);
-            // metrics will be recalculated once route loads (see routeRef effect below)
             lastPosRef.current = [cLat, cLng];
           }
         }
@@ -166,8 +149,6 @@ export default function LiveTracking() {
       .catch(() => setLoadError("Could not load ride data."));
   }, [rideId]);
 
-  // FIX 4: Once route loads, recalculate metrics using the last known position
-  // This handles the case where position was set before route was ready
   useEffect(() => {
     if (route.length > 0 && lastPosRef.current) {
       recalcMetrics(lastPosRef.current);
@@ -206,11 +187,9 @@ export default function LiveTracking() {
           .sort((a, b) => a.distKm - b.distKm)
           .filter(s => { const k = Math.round(s.distKm * 2); if (seen.has(k)) return false; seen.add(k); return true; })
       );
-    } catch { /* Overpass down */ }
+    } catch {}
   };
 
-  // ── FIX 5: Timer ticks based on startTime, NOT local state increment ────────
-  // This way navigating away and back keeps the correct elapsed time
   useEffect(() => {
     const t = setInterval(() => {
       if (rideStartTimeRef.current) {
@@ -232,8 +211,6 @@ export default function LiveTracking() {
     }
   }, []);
 
-  // FIX 6: recalcMetrics uses useCallback with no deps on state that changes,
-  // so it's stable and always reads from refs
   const recalcMetrics = useCallback((pos) => {
     const coords   = routeRef.current;
     const cumDists = cumDistsRef.current;
@@ -246,13 +223,11 @@ export default function LiveTracking() {
     setDistCovered(coveredKm.toFixed(1));
     setRemainingDist(leftKm.toFixed(1));
     setProgress(Math.min(100, Math.round((coveredKm / totalDist) * 100)));
-    // ETA: remaining km / avg 30 km/h with 1.4x traffic factor
     setRemainingEta(Math.round((leftKm / 30) * 60 * 1.4));
     setOffRoute(haversineM(pos, coords[idx]) > 300);
     if (destRef.current && haversineM(pos, destRef.current) < DEST_RADIUS_M) setArrived(true);
   }, []);
 
-  // ── Live location ──────────────────────────────────────────────────────────
   useEffect(() => {
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
@@ -260,10 +235,8 @@ export default function LiveTracking() {
         const lng = pos.coords.longitude;
         setCurrentPos([lat, lng]);
         setSpeed(pos.coords.speed ? +(pos.coords.speed * 3.6).toFixed(1) : 0);
-
         axios.post(`${API}/rides/update-location`, { rideId, lat, lng }).catch(() => {});
         recalcMetrics([lat, lng]);
-
         if (lastPosRef.current) {
           const moved = haversineM(lastPosRef.current, [lat, lng]);
           if (moved > STOPPED_THRESHOLD_M) {
@@ -274,7 +247,6 @@ export default function LiveTracking() {
           }
         }
         lastPosRef.current = [lat, lng];
-
         if (!stoppedTimerRef.current) {
           stoppedTimerRef.current = setTimeout(() => {
             setStoppedAlert(true);
@@ -302,7 +274,6 @@ export default function LiveTracking() {
     };
   }, [rideId, recalcMetrics]);
 
-  // ── SOS ───────────────────────────────────────────────────────────────────
   const handleSOS = async (auto = false) => {
     setSosActive(true);
     setSosMsg("📡 Sending SOS...");
@@ -316,18 +287,13 @@ export default function LiveTracking() {
         const msg = auto
           ? `🚨 AUTO-ALERT: ${userName} may need help! No movement detected. Location: ${location.mapsLink}`
           : `🚨 SOS from ${userName}! I need help. Location: ${location.mapsLink}`;
-
         if (contacts.length > 0) openWhatsApp(contacts[0].phone, msg);
-
         contacts.slice(1).forEach((c, i) => {
           let p = c.phone.replace(/\D/g, "");
           if (p.startsWith("0")) p = "91" + p.slice(1);
           if (p.length === 10)   p = "91" + p;
-          setTimeout(() => {
-            window.open(`https://wa.me/${p}?text=${encodeURIComponent(msg)}`, `_wa_${i + 1}`);
-          }, (i + 1) * 800);
+          setTimeout(() => window.open(`https://wa.me/${p}?text=${encodeURIComponent(msg)}`, `_wa_${i + 1}`), (i + 1) * 800);
         });
-
         const smsStatus = smsSent ? "📱 SMS sent" : "📱 SMS unavailable";
         setSosMsg(`✅ WhatsApp opened + ${smsStatus} to ${contacts.length} contact(s)`);
       } catch (e) {
@@ -340,18 +306,13 @@ export default function LiveTracking() {
     });
   };
 
-  // ── FIX 7: Quick message — get current position first, then send ──────────
-  // Previously if geolocation was slow the contacts call would fail silently.
-  // Now we show a loading state and properly surface errors.
   const sendQuickMsg = (type) => {
     const msgs = {
       safe: "✅ I'm safe and on my way!",
       late: "⏰ I'm running a bit late, don't worry!",
       help: "🆘 I need help, please call me!",
     };
-
     setQuickMsg("📡 Sending...");
-
     const doSend = async (lat, lng) => {
       try {
         const res = await axios.post(
@@ -360,47 +321,34 @@ export default function LiveTracking() {
           { headers: { Authorization: `Bearer ${getToken()}` } }
         );
         const { contacts, location, userName } = res.data;
-
         if (!contacts || contacts.length === 0) {
           setQuickMsg("❌ No emergency contacts found. Add them in Profile.");
           setTimeout(() => setQuickMsg(""), 4000);
           return;
         }
-
         const text = `${msgs[type]} — ${userName}. My location: ${location.mapsLink}`;
-
-        // Open WhatsApp for first contact
         openWhatsApp(contacts[0].phone, text);
-
-        // Additional contacts
         contacts.slice(1).forEach((c, i) => {
           let p = c.phone.replace(/\D/g, "");
           if (p.startsWith("0")) p = "91" + p.slice(1);
           if (p.length === 10)   p = "91" + p;
           setTimeout(() => window.open(`https://wa.me/${p}?text=${encodeURIComponent(text)}`, `_qm_${i}`), (i + 1) * 600);
         });
-
         setQuickMsg(`✅ Message sent to ${contacts.length} contact(s)`);
         setTimeout(() => setQuickMsg(""), 3000);
       } catch (err) {
         const errMsg = err.response?.data?.message || err.message || "Unknown error";
-        console.error("Quick message failed:", errMsg);
         setQuickMsg(`❌ Could not send: ${errMsg}`);
         setTimeout(() => setQuickMsg(""), 4000);
       }
     };
-
-    // FIX 8: Use cached position if available (faster), fallback to fresh geolocation
     if (lastPosRef.current) {
       const [lat, lng] = lastPosRef.current;
       doSend(lat, lng);
     } else {
       navigator.geolocation.getCurrentPosition(
         (pos) => doSend(pos.coords.latitude, pos.coords.longitude),
-        () => {
-          setQuickMsg("❌ Could not get location. Check GPS permissions.");
-          setTimeout(() => setQuickMsg(""), 3000);
-        }
+        () => { setQuickMsg("❌ Could not get location. Check GPS permissions."); setTimeout(() => setQuickMsg(""), 3000); }
       );
     }
   };
@@ -424,13 +372,17 @@ export default function LiveTracking() {
     return s.distKm > (cumDistsRef.current[closestIdx(routeRef.current, currentPos)] || 0);
   });
 
-  if (loadError) return (<><Navbar /><div className="ride-container"><div className="ride-error">⚠️ {loadError}</div></div></>);
-  if (!ride)     return (<><Navbar /><div className="ride-container"><div className="lt-loading"><div className="lt-spinner" /><p>Loading ride…</p></div></div></>);
+  if (loadError) return (
+    <><Navbar /><div className="lt-error-page"><div className="lt-error">⚠️ {loadError}</div></div></>
+  );
+  if (!ride) return (
+    <><Navbar /><div className="lt-error-page"><div className="lt-loading"><div className="lt-spinner" /><p>Loading ride…</p></div></div></>
+  );
 
   return (
     <>
       <Navbar />
-      <div className="ride-container lt-container">
+      <div className="lt-page">
 
         {nightMode   && <div className="lt-banner lt-banner-night">🌙 Night ride in progress — stay alert and ride safely</div>}
         {batteryWarn && <div className="lt-banner lt-banner-battery">🔋 Low battery — your live location may stop updating soon</div>}
@@ -469,7 +421,7 @@ export default function LiveTracking() {
           <span className="lt-progress-pct">{progress}%</span>
         </div>
 
-        <div className="ride-info lt-info">
+        <div className="lt-info">
           <p>📍 <strong>{ride.destinationName || "—"}</strong></p>
           <p>🚗 {ride.vehicleType || "Bike"}</p>
           {nextStation && (
@@ -481,7 +433,7 @@ export default function LiveTracking() {
         </div>
 
         {currentPos && (
-          <div className="map-wrapper" style={{ position: "relative" }}>
+          <div className="lt-map-wrapper">
             <div className="lt-map-controls">
               <button className={`lt-follow-btn ${autoFollow ? "active" : ""}`} onClick={() => setAutoFollow(p => !p)}>
                 {autoFollow ? "🔒 Following" : "🔓 Free"}
@@ -489,10 +441,13 @@ export default function LiveTracking() {
             </div>
             <MapContainer center={currentPos} zoom={15} style={{ height: "100%", width: "100%" }}>
               <MapFollower center={currentPos} autoFollow={autoFollow} />
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+              />
               <Marker position={currentPos} />
               {destRef.current && <Marker position={destRef.current} />}
-              {route.length > 0 && <Polyline positions={route} pathOptions={{ color: "#3b82f6", weight: 5, opacity: 0.85 }} />}
+              {route.length > 0 && <Polyline positions={route} pathOptions={{ color: "#f59e0b", weight: 5, opacity: 0.9 }} />}
             </MapContainer>
           </div>
         )}
@@ -512,7 +467,7 @@ export default function LiveTracking() {
             <span className="lt-sos-ring" /><span className="lt-sos-ring lt-sos-ring2" />
             {sosActive ? "Sending…" : "🆘 SOS"}
           </button>
-          <button className="ride-btn stop-btn" onClick={stopRide}>⏹ Stop Ride</button>
+          <button className="lt-stop-btn" onClick={stopRide}>⏹ Stop Ride</button>
         </div>
 
         {sosMsg && <div className="lt-sos-msg">{sosMsg}</div>}

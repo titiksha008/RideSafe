@@ -539,3 +539,60 @@
 
 .ps-sos-info-item span { font-size: 22px; flex-shrink: 0; }
 .ps-sos-info-item p { margin: 0; font-size: 12px; color: #64748b; line-height: 1.5; }
+/* ── Add these to your existing ProfileSafety.css ── */
+
+/* Read-only field value (replaces input when not editing) */
+.ps-field-value {
+  margin: 0;
+  padding: 10px 14px;
+  font-size: 15px;
+  color: var(--text-primary, #e2e8f0);
+  background: transparent;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+
+.ps-field-value.ps-disabled {
+  color: var(--text-muted, #64748b);
+}
+
+/* Edit Profile button — sits under the name in the header */
+.ps-edit-profile-btn {
+  margin-top: 8px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  color: #818cf8;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ps-edit-profile-btn:hover {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: #818cf8;
+}
+
+/* Cancel button — sits next to Save Profile */
+.ps-cancel-btn {
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #94a3b8;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ps-cancel-btn:hover {
+  background: rgba(255,255,255,0.05);
+}

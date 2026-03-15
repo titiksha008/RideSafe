@@ -1,7 +1,8 @@
-const User = require("../models/User");
+const User  = require("../models/User");
 const bcrypt = require("bcryptjs");
+const axios  = require("axios");
 
-// ─── GET PROFILE ─────────────────────────────────────────────────────────────
+// ── GET PROFILE ───────────────────────────────────────────────────────────────
 exports.getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");
@@ -13,34 +14,19 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// ─── UPDATE PROFILE ───────────────────────────────────────────────────────────
+// ── UPDATE PROFILE ────────────────────────────────────────────────────────────
 exports.updateProfile = async (req, res) => {
   try {
     const {
-      firstName,
-      middleName,
-      lastName,
-      age,
-      contactNumber,
-      vehicleType,
-      nightRider,
-      notifications,
-      profilePhoto
+      firstName, middleName, lastName, age,
+      contactNumber, vehicleType, nightRider,
+      notifications, profilePhoto
     } = req.body;
 
     const updated = await User.findByIdAndUpdate(
       req.userId,
-      {
-        firstName,
-        middleName,
-        lastName,
-        age,
-        contactNumber,
-        vehicleType,
-        nightRider,
-        notifications,
-        profilePhoto
-      },
+      { firstName, middleName, lastName, age, contactNumber,
+        vehicleType, nightRider, notifications, profilePhoto },
       { new: true, runValidators: true }
     ).select("-password");
 
@@ -51,11 +37,10 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// ─── CHANGE PASSWORD ──────────────────────────────────────────────────────────
+// ── CHANGE PASSWORD ───────────────────────────────────────────────────────────
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-
     const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -65,7 +50,6 @@ exports.changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
     await user.save();
-
     res.json({ message: "Password changed successfully" });
   } catch (err) {
     console.error(err);
@@ -73,21 +57,18 @@ exports.changePassword = async (req, res) => {
   }
 };
 
-// ─── UPDATE EMERGENCY CONTACTS ────────────────────────────────────────────────
+// ── UPDATE EMERGENCY CONTACTS ─────────────────────────────────────────────────
 exports.updateEmergencyContacts = async (req, res) => {
   try {
-    const { contacts } = req.body; // array of { name, phone, relation }
-
+    const { contacts } = req.body;
     if (!Array.isArray(contacts) || contacts.length > 3) {
       return res.status(400).json({ message: "Provide an array of up to 3 contacts" });
     }
-
     const updated = await User.findByIdAndUpdate(
       req.userId,
       { emergencyContacts: contacts },
       { new: true, runValidators: true }
     ).select("-password");
-
     res.json({ message: "Emergency contacts updated", user: updated });
   } catch (err) {
     console.error(err);
@@ -95,8 +76,57 @@ exports.updateEmergencyContacts = async (req, res) => {
   }
 };
 
-// ─── SOS ─────────────────────────────────────────────────────────────────────
-// Saves the SOS event and returns contacts so frontend can dial/message them
+// ── SEND SMS VIA FAST2SMS ─────────────────────────────────────────────────────
+// Fast2SMS is free for Indian numbers — sign up at fast2sms.com to get API key
+// Add FAST2SMS_API_KEY to your .env file
+async function sendSMS(phoneNumbers, message) {
+  const apiKey = process.env.FAST2SMS_API_KEY;
+
+  if (!apiKey) {
+    console.warn("FAST2SMS_API_KEY not set in .env — SMS skipped");
+    return { success: false, reason: "No API key" };
+  }
+
+  // Fast2SMS expects 10-digit Indian numbers (no +91)
+  const cleanedNumbers = phoneNumbers
+    .map(p => p.replace(/\D/g, ""))
+    .map(p => {
+      if (p.startsWith("91") && p.length === 12) return p.slice(2);
+      if (p.startsWith("0"))  return p.slice(1);
+      return p;
+    })
+    .filter(p => p.length === 10)
+    .join(",");
+
+  if (!cleanedNumbers) return { success: false, reason: "No valid numbers" };
+
+  try {
+    const response = await axios.post(
+      "https://www.fast2sms.com/dev/bulkV2",
+      {
+        route:   "q",          // quick transactional route
+        message: message,
+        numbers: cleanedNumbers,
+        flash:   0
+      },
+      {
+        headers: {
+          authorization: apiKey,
+          "Content-Type": "application/json"
+        },
+        timeout: 10000
+      }
+    );
+
+    console.log("Fast2SMS response:", response.data);
+    return { success: true, data: response.data };
+  } catch (err) {
+    console.error("Fast2SMS error:", err.response?.data || err.message);
+    return { success: false, reason: err.message };
+  }
+}
+
+// ── SOS ───────────────────────────────────────────────────────────────────────
 exports.triggerSOS = async (req, res) => {
   try {
     const { lat, lng, rideId } = req.body;
@@ -105,19 +135,27 @@ exports.triggerSOS = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (!user.emergencyContacts || user.emergencyContacts.length === 0) {
-      return res.status(400).json({ message: "No emergency contacts set" });
+      return res.status(400).json({ message: "No emergency contacts set. Please add contacts in Profile." });
     }
 
     const mapsLink = `https://www.google.com/maps?q=${lat},${lng}`;
+    const userName = `${user.firstName} ${user.lastName}`;
 
-    // Return contacts + location so frontend can trigger WhatsApp / SMS
+    // SMS message (kept short for clarity)
+    const smsMessage = `SOS ALERT from ${userName}! They need help. Live location: ${mapsLink}`;
+
+    // Send SMS automatically via Fast2SMS
+    const phoneNumbers = user.emergencyContacts.map(c => c.phone);
+    const smsResult = await sendSMS(phoneNumbers, smsMessage);
+
     res.json({
-      message: "SOS triggered",
-      contacts: user.emergencyContacts,
-      location: { lat, lng, mapsLink },
-      rideId: rideId || null,
-      userName: `${user.firstName} ${user.lastName}`,
-      userPhone: user.contactNumber
+      message:     "SOS triggered",
+      smsSent:     smsResult.success,
+      contacts:    user.emergencyContacts,
+      location:    { lat, lng, mapsLink },
+      rideId:      rideId || null,
+      userName,
+      userPhone:   user.contactNumber
     });
 
   } catch (err) {
