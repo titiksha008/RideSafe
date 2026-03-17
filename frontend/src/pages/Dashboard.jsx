@@ -1,4 +1,3 @@
-//Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -7,17 +6,24 @@ import "../styles/Dashboard.css";
 
 const API = "http://localhost:5000/api";
 
+// FIX: Check all possible token key names — must match what your login page saves
 function getToken() {
-  return localStorage.getItem("token");
+  return (
+    localStorage.getItem("token") ||
+    localStorage.getItem("authToken") ||
+    localStorage.getItem("jwt") ||
+    sessionStorage.getItem("token") ||
+    null
+  );
 }
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
-  const mins  = Math.floor(diff / 60000);
+  const mins = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
-  const days  = Math.floor(diff / 86400000);
-  if (mins  < 1)  return "Just now";
-  if (mins  < 60) return `${mins}m ago`;
+  const days = Math.floor(diff / 86400000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
   if (hours < 24) return `${hours}h ago`;
   return `${days}d ago`;
 }
@@ -39,20 +45,55 @@ function getGreeting() {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [data, setData]       = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const token = getToken();
-    if (!token) { navigate("/auth"); return; }
 
-    axios.get(`${API}/dashboard`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-    .then(res => { setData(res.data); setLoading(false); })
-    .catch(() => { setError("Failed to load dashboard."); setLoading(false); });
-  }, []);
+    // FIX: Debug log so you can see exactly what's happening
+    console.log("Dashboard: token found =", token ? "YES" : "NO", "| value:", token);
+
+    if (!token) {
+      console.warn("No token found — redirecting to login");
+      setLoading(false);
+      // FIX: Use the correct route path for your login page
+      // Change "/login" below to match your actual auth route (e.g. "/auth", "/signin")
+      navigate("/login");
+      return;
+    }
+
+    axios
+      .get(`${API}/dashboard`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        console.log("Dashboard data loaded:", res.data);
+        setData(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Dashboard API error:", err.response?.status, err.response?.data || err.message);
+
+        // FIX: Handle 401/403 specifically — token expired or invalid
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          // Clear bad token and redirect to login
+          localStorage.removeItem("token");
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("jwt");
+          sessionStorage.removeItem("token");
+          navigate("/login"); // change to your actual login route
+          return;
+        }
+
+        setError(
+          err.response?.data?.message ||
+          `Failed to load dashboard (${err.response?.status || "network error"})`
+        );
+        setLoading(false);
+      });
+  }, [navigate]);
 
   if (loading) return (
     <>
@@ -69,9 +110,17 @@ export default function Dashboard() {
       <Navbar />
       <div className="db-container db-loading">
         <p style={{ color: "#fca5a5" }}>{error}</p>
+        <button
+          style={{ marginTop: 16, padding: "8px 20px", cursor: "pointer" }}
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </button>
       </div>
     </>
   );
+
+  if (!data) return null;
 
   const { user, stats, recentRides } = data;
   const isNight = new Date().getHours() >= 22 || new Date().getHours() < 5;
@@ -81,7 +130,7 @@ export default function Dashboard() {
       <Navbar />
       <div className="db-container">
 
-        {/* ── Welcome Banner ── */}
+        {/* Welcome Banner */}
         <div className="db-banner">
           <div className="db-banner-left">
             <p className="db-greeting">{getGreeting()},</p>
@@ -90,8 +139,8 @@ export default function Dashboard() {
               {stats.activeRide
                 ? "⚡ You have an active ride in progress"
                 : isNight
-                ? "🌙 Stay safe tonight. Night rider mode is " + (user.nightRider ? "on" : "off") + "."
-                : "Ready for your next ride? Stay safe out there."}
+                  ? "🌙 Stay safe tonight. Night rider mode is " + (user.nightRider ? "on" : "off") + "."
+                  : "Ready for your next ride? Stay safe out there."}
             </p>
           </div>
           <div className="db-avatar">
@@ -104,7 +153,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── Active Ride Banner ── */}
+        {/* Active Ride Banner */}
         {stats.activeRide && (
           <div className="db-active-banner">
             <div className="db-active-dot" />
@@ -115,7 +164,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── Stats Grid ── */}
+        {/* Stats Grid */}
         <div className="db-stats">
           <div className="db-stat-card db-stat-blue">
             <div className="db-stat-icon">🏁</div>
@@ -134,14 +183,12 @@ export default function Dashboard() {
           </div>
           <div className="db-stat-card db-stat-orange">
             <div className="db-stat-icon">🛡️</div>
-            <div className="db-stat-value">
-              {stats.totalRides > 0 ? "Safe" : "—"}
-            </div>
+            <div className="db-stat-value">{stats.totalRides > 0 ? "Safe" : "—"}</div>
             <div className="db-stat-label">Ride Status</div>
           </div>
         </div>
 
-        {/* ── Quick Actions ── */}
+        {/* Quick Actions */}
         <div className="db-section">
           <h2 className="db-section-title">Quick Actions</h2>
           <div className="db-actions">
@@ -168,7 +215,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── Recent Rides ── */}
+        {/* Recent Rides */}
         <div className="db-section">
           <h2 className="db-section-title">Recent Rides</h2>
 
@@ -180,44 +227,58 @@ export default function Dashboard() {
               </button>
             </div>
           ) : (
-            <div className="db-rides">
-              {recentRides.map((ride, i) => (
-                <div key={ride._id} className="db-ride-card" style={{ animationDelay: `${i * 0.07}s` }}>
-                  <div className="db-ride-icon">
-                    {ride.vehicleType === "car" ? "🚗"
-                     : ride.vehicleType === "scooter" ? "🛵"
-                     : "🏍️"}
+            <>
+              <div className="db-rides">
+                {recentRides.slice(0, 2).map((ride, i) => (
+                  <div key={ride._id} className="db-ride-card" style={{ animationDelay: `${i * 0.07}s` }}>
+                    <div className="db-ride-icon">
+                      {ride.vehicleType === "car" ? "🚗"
+                        : ride.vehicleType === "scooter" ? "🛵"
+                        : "🏍️"}
+                    </div>
+                    <div className="db-ride-info">
+                      <p className="db-ride-dest">
+                        {ride.destinationName || "Unknown destination"}
+                      </p>
+                      <p className="db-ride-meta">
+                        {ride.distance ? `${ride.distance} km` : "—"}
+                        {ride.expectedTime ? ` · ${ride.expectedTime} min` : ""}
+                        {" · "}{timeAgo(ride.createdAt)}
+                      </p>
+                    </div>
+                    <div className={`db-ride-status ${
+                      ride.status === "COMPLETED" ? "completed"
+                      : ride.status === "ACTIVE" ? "active"
+                      : "cancelled"
+                    }`}>
+                      {ride.status === "COMPLETED" ? "✓ Done"
+                        : ride.status === "ACTIVE" ? "⚡ Live"
+                        : "✕ Cancelled"}
+                    </div>
+                    {ride.status === "ACTIVE" && (
+                      <button
+                        className="db-rejoin-btn"
+                        onClick={() => navigate(`/tracking/${ride._id}`)}
+                      >
+                        Rejoin
+                      </button>
+                    )}
                   </div>
-                  <div className="db-ride-info">
-                    <p className="db-ride-dest">
-                      {ride.destinationName || "Unknown destination"}
-                    </p>
-                    <p className="db-ride-meta">
-                      {ride.distance ? `${ride.distance} km` : "—"}
-                      {ride.expectedTime ? ` · ${ride.expectedTime} min` : ""}
-                      {" · "}{timeAgo(ride.createdAt)}
-                    </p>
-                  </div>
-                  <div className={`db-ride-status ${ride.status === "COMPLETED" ? "completed" : ride.status === "ACTIVE" ? "active" : "cancelled"}`}>
-                    {ride.status === "COMPLETED" ? "✓ Done"
-                     : ride.status === "ACTIVE"    ? "⚡ Live"
-                     : "✕ Cancelled"}
-                  </div>
-                  {ride.status === "ACTIVE" && (
-                    <button
-                      className="db-rejoin-btn"
-                      onClick={() => navigate(`/tracking/${ride._id}`)}
-                    >
-                      Rejoin
-                    </button>
-                  )}
+                ))}
+              </div>
+
+              {recentRides.length > 2 && (
+                <div className="db-view-more">
+                  <button className="db-view-rides-btn" onClick={() => navigate("/rides")}>
+                    View All Rides →
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* ── Safety Tip ── */}
+        {/* Safety Tip */}
         <div className="db-tip">
           <span className="db-tip-icon">💡</span>
           <p>

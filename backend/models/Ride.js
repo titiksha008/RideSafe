@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const rideSchema = new mongoose.Schema({
 
@@ -13,6 +13,8 @@ const rideSchema = new mongoose.Schema({
     lng: { type: Number }
   },
 
+  startLocationName: { type: String, default: "" },
+  
   endLocation: {
     lat: { type: Number },
     lng: { type: Number }
@@ -31,8 +33,8 @@ const rideSchema = new mongoose.Schema({
   expectedTime:    { type: Number, default: 0 },
 
   // actual values filled when ride stops
-  actualDistance:  { type: Number, default: null }, // km actually covered
-  actualTime:      { type: Number, default: null }, // minutes actually taken
+  actualDistance:  { type: Number, default: null },
+  actualTime:      { type: Number, default: null },
 
   status: {
     type: String,
@@ -45,4 +47,6 @@ const rideSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-module.exports = mongoose.model("Ride", rideSchema);
+const Ride = mongoose.model("Ride", rideSchema);
+
+export default Ride;

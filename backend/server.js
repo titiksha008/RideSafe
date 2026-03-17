@@ -1,12 +1,15 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
 
-const connectDB = require("./config/db");
-const authRoutes      = require("./routes/authRoutes");
-const rideRoutes      = require("./routes/rideRoutes");
-const profileRoutes   = require("./routes/profileRoutes");
-const dashboardRoutes = require("./routes/dashboardRoutes");
+import connectDB from "./config/db.js";
+import authRoutes from "./routes/authRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import rideRoutes from "./routes/rideRoutes.js";
+import profileRoutes from "./routes/profileRoutes.js";
+import recordingRoutes from "./routes/recordingRoutes.js";
+
+dotenv.config();
 
 const app = express();
 
@@ -18,10 +21,14 @@ app.use(cors());
 app.use(express.json());
 
 // routes
-app.use("/api/auth",      authRoutes);
-app.use("/api/rides",     rideRoutes);
-app.use("/api/profile",   profileRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/rides", rideRoutes);
+app.use("/api/profile", profileRoutes);
+app.use("/api/recordings", recordingRoutes);
+
+// serve uploaded audio
+app.use("/uploads", express.static("uploads"));
 
 app.get("/", (req, res) => {
   res.send("Cab Safety Backend Running");

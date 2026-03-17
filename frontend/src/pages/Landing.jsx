@@ -1,7 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/landing.css";
-import Navbar from "../components/Navbar";
 
 function Landing() {
 
@@ -10,7 +9,14 @@ function Landing() {
   return (
     <div className="landing-container">
 
-      <Navbar />
+      <nav className="navbar">
+        <h2 className="logo">SafeRide</h2>
+
+        <div className="nav-buttons">
+          <button onClick={() => navigate("/auth?mode=login")}>Login</button>
+          <button onClick={() => navigate("/auth?mode=signup")}>Signup</button>
+        </div>
+      </nav>
 
       <section className="hero">
 
@@ -23,7 +29,7 @@ function Landing() {
 
         <button
           className="cta"
-          onClick={() => navigate("/start-ride")}
+          onClick={() => navigate("/auth?mode=signup")}
         >
           Get Started
         </button>

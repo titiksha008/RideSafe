@@ -9,6 +9,18 @@
   padding: 80px 40px 60px;
 }
 
+.db-container::before {
+  content: "";
+  position: fixed;
+  top: -200px;
+  right: -200px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(59,130,246,0.15), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* ── Loading ── */
 .db-loading {
   display: flex;
@@ -35,11 +47,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(135deg, rgba(29,78,216,0.2) 0%, rgba(59,130,246,0.08) 100%);
-  border: 1px solid rgba(59,130,246,0.2);
+
+  background: linear-gradient(
+    135deg,
+    rgba(29,78,216,0.25) 0%,
+    rgba(59,130,246,0.08) 100%
+  );
+
+  border: 1px solid rgba(59,130,246,0.25);
   border-radius: 20px;
+
   padding: 36px 40px;
   margin-bottom: 20px;
+
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+
   animation: slideDown 0.4s ease;
 }
 
@@ -166,7 +188,10 @@
   transition: transform 0.2s;
 }
 
-.db-stat-card:hover { transform: translateY(-3px); }
+.db-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.35);
+}
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(16px); }
@@ -235,7 +260,8 @@
 .db-action-card:hover {
   background: rgba(255,255,255,0.08);
   border-color: rgba(255,255,255,0.15);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
 }
 
 .db-action-primary {
@@ -283,7 +309,11 @@
   transition: background 0.2s;
 }
 
-.db-ride-card:hover { background: rgba(255,255,255,0.06); }
+.db-ride-card:hover {
+  background: rgba(255,255,255,0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
 
 .db-ride-icon { font-size: 24px; flex-shrink: 0; }
 
@@ -400,4 +430,43 @@
   .db-container { padding: 75px 18px 40px; }
   .db-banner { padding: 24px 20px; flex-direction: column; align-items: flex-start; gap: 16px; }
   .db-name { font-size: 26px; }
+}
+
+/* RIDE HISTORY BACK BUTTON -> AllRides.jsx*/
+.db-back-btn{
+  background: none;
+  border: none;
+  color: #60a5fa;
+  font-size: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.db-back-btn:hover{
+  text-decoration: underline;
+}
+
+/* VIEW ALL RIDES BUTTON -> Dashboard.jsx */
+.db-view-rides-btn{
+  margin-top: 12px;
+  padding: 8px 14px;
+  background: #1f2937;
+  color: #e5e7eb;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.db-view-rides-btn:hover{
+  background: #374151;
+  transform: translateY(-1px);
+}
+
+.db-view-rides-btn:active{
+  transform: translateY(0);
 }

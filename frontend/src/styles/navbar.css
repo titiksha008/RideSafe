@@ -42,3 +42,10 @@
 .logout-btn:hover{
   background:#dc2626 !important;
 }
+
+.nav-icon{
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+}

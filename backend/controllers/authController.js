@@ -1,15 +1,15 @@
-//authController.js
-const User = require("../models/User");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
-
+// =====================
 // SIGNUP
-const signupUser = async (req, res) => {
+// =====================
+export const signupUser = async (req, res) => {
 
   try {
 
-    const {
+    let {
       firstName,
       middleName,
       lastName,
@@ -19,16 +19,23 @@ const signupUser = async (req, res) => {
       password
     } = req.body;
 
-    // check required fields
+    // normalize email
+    email = email.trim().toLowerCase();
+
+    // validation
     if (!firstName || !lastName || !contactNumber || !email || !password) {
-      return res.status(400).json({ message: "Please fill all required fields" });
+      return res.status(400).json({
+        message: "Please fill all required fields"
+      });
     }
 
-    // check existing email
+    // check if user exists
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
-      return res.status(400).json({ message: "Email already registered" });
+      return res.status(400).json({
+        message: "Email already registered"
+      });
     }
 
     // hash password
@@ -55,37 +62,49 @@ const signupUser = async (req, res) => {
   } catch (error) {
 
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message: "Server error"
+    });
 
   }
 
 };
 
 
-
+// =====================
 // LOGIN
-const loginUser = async (req, res) => {
+// =====================
+export const loginUser = async (req, res) => {
 
   try {
 
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+
+    email = email.trim().toLowerCase();
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password required" });
+      return res.status(400).json({
+        message: "Email and password required"
+      });
     }
 
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(400).json({ message: "User not found" });
+      return res.status(400).json({
+        message: "Invalid credentials"
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
+      return res.status(400).json({
+        message: "Invalid credentials"
+      });
     }
 
+    // create JWT
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET,
@@ -100,14 +119,10 @@ const loginUser = async (req, res) => {
   } catch (error) {
 
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      message: "Server error"
+    });
 
   }
 
-};
-
-
-module.exports = {
-  signupUser,
-  loginUser
 };
