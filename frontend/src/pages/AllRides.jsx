@@ -5,7 +5,8 @@ import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
 import "../styles/Dashboard.css";
 
-const API = "http://localhost:5000/api";
+
+const API = `${import.meta.env.VITE_API_URL}/api`;
 
 function getToken() {
   return localStorage.getItem("token");

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "../styles/Dashboard.css";
 
-const API = "http://localhost:5000/api";
+const API = `${import.meta.env.VITE_API_URL}/api`;
 
 // FIX: Check all possible token key names — must match what your login page saves
 function getToken() {

@@ -12,7 +12,7 @@ import "leaflet/dist/leaflet.css";
 import "../styles/ride.css";
 import Navbar from "../components/Navbar";
 
-const API = "http://localhost:5000/api";
+const API = `${import.meta.env.VITE_API_URL}/api`;
 const TRAFFIC_MULTIPLIER = 1.4;
 
 // Fallback Overpass mirrors in order — if one 429s, try the next

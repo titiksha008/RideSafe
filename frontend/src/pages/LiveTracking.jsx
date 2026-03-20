@@ -15,7 +15,7 @@ import "../styles/LiveTracking.css";
 import Navbar from "../components/Navbar";
 import L from "leaflet";
 
-const API = "http://localhost:5000/api";
+const API = `${import.meta.env.VITE_API_URL}/api`;
 const STOPPED_THRESHOLD_M = 50;
 const STOPPED_TIMEOUT_MS = 5 * 60 * 1000;
 const DEST_RADIUS_M = 200;

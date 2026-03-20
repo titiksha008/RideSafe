@@ -531,7 +531,8 @@ import axios from "axios";
 import Navbar from "../components/Navbar";
 import "../styles/SOSCenter.css";
 
-const API = "http://localhost:5000/api";
+
+const API = `${import.meta.env.VITE_API_URL}/api`;
 
 function getToken() {
   return (

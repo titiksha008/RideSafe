@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import "../styles/recordings.css";
 import authFetch from "../utils/authFetch";
 
+const API = import.meta.env.VITE_API_URL; // ✅ ADDED
+
 const Recordings = () => {
 
   const navigate = useNavigate();
@@ -124,7 +126,7 @@ const Recordings = () => {
 
             <audio
               controls
-              src={`http://localhost:5000/${rec.fileUrl}`}
+              src={`${API}/${rec.fileUrl}`}  // ✅ FIXED ONLY THIS LINE
             />
 
             <button

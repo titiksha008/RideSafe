@@ -1,8 +1,9 @@
-//Auth.jsx
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import "../styles/auth.css";
+
+const API = import.meta.env.VITE_API_URL; // ✅ ADDED
 
 function Auth() {
 
@@ -68,7 +69,7 @@ function Auth() {
 			if (isLogin) {
 
 				const res = await axios.post(
-					"http://localhost:5000/api/auth/login",
+					`${API}/api/auth/login`, // ✅ FIXED
 					{
 						email: formData.email,
 						password: formData.password
@@ -81,7 +82,7 @@ function Auth() {
 			} else {
 
 				await axios.post(
-					"http://localhost:5000/api/auth/signup",
+					`${API}/api/auth/signup`, // ✅ FIXED
 					formData
 				);
 
