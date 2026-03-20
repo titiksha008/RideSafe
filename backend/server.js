@@ -19,7 +19,7 @@ connectDB();
 
 // middleware
 app.use(cors({
-  origin: "*"
+  origin: "https://ride-safe-frontend.vercel.app"
 }));
 app.use(express.json());
 
