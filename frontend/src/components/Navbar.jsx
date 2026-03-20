@@ -5,11 +5,11 @@ import { FaLocationDot } from "react-icons/fa6";
 import { shareLiveLocation } from "../utils/locationShare";
 
 function Navbar() {
-
   const navigate = useNavigate();
   const location = useLocation();
 
   const [toast, setToast] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -23,26 +23,48 @@ function Navbar() {
     navigate("/auth");
   };
 
+  const handleNav = (path) => {
+    navigate(path);
+    setMenuOpen(false);
+  };
+
   return (
     <>
       <nav className="navbar">
 
-        <div className="nav-logo" onClick={() => navigate("/")}>
+        {/* Logo */}
+        <div className="nav-logo" onClick={() => handleNav("/")}>
           SafeRide
         </div>
 
-        <div className="nav-links">
+        {/* Hamburger — visible on mobile only */}
+        <button
+          className={`nav-toggle${menuOpen ? " open" : ""}`}
+          onClick={() => setMenuOpen((prev) => !prev)}
+          aria-label="Toggle navigation"
+          aria-expanded={menuOpen}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+
+        {/* Nav links */}
+        <div className={`nav-links${menuOpen ? " open" : ""}`}>
 
           <button
             className={isActive("/dashboard") ? "active" : ""}
-            onClick={() => navigate("/dashboard")}
+            onClick={() => handleNav("/dashboard")}
           >
             Dashboard
           </button>
 
           <button
             className="nav-location-btn"
-            onClick={() => shareLiveLocation(showToast)}
+            onClick={() => {
+              shareLiveLocation(showToast);
+              setMenuOpen(false);
+            }}
             title="Share Live Location"
           >
             <FaLocationDot />
@@ -50,21 +72,29 @@ function Navbar() {
 
           <button
             className={isActive("/start-ride") ? "active" : ""}
-            onClick={() => navigate("/start-ride")}
+            onClick={() => handleNav("/start-ride")}
           >
             Start Ride
           </button>
 
           <button
             className={isActive("/safety-center") ? "active" : ""}
-            onClick={() => navigate("/safety-center")}
+            onClick={() => handleNav("/safety-center")}
           >
             Safety
           </button>
 
           <button
+            className={`nav-sos-btn ${isActive("/sos") ? "active" : ""}`}
+            onClick={() => handleNav("/sos")}
+            title="SOS Center"
+          >
+            🆘 SOS
+          </button>
+
+          <button
             className={isActive("/profile") ? "active" : ""}
-            onClick={() => navigate("/profile")}
+            onClick={() => handleNav("/profile")}
           >
             Profile
           </button>

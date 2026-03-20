@@ -1,3 +1,4 @@
+//LiveTracking.jsx
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import { useParams, useNavigate } from "react-router-dom";
@@ -163,7 +164,6 @@ function SafetyLayer({ policeStations, route }) {
   return null;
 }
 
-// Renders police station markers on the map with popups
 function PoliceMarkers({ stations, currentDistKm }) {
   return (
     <>
@@ -189,6 +189,67 @@ function PoliceMarkers({ stations, currentDistKm }) {
         );
       })}
     </>
+  );
+}
+
+// ── Quick Police Call Button Component ──────────────────────────
+function QuickPoliceCall() {
+  const [callState, setCallState] = useState("idle"); // idle | confirm | calling
+
+  const handlePress = () => {
+    if (callState === "idle") {
+      setCallState("confirm");
+    }
+  };
+
+  const handleConfirm = () => {
+    setCallState("calling");
+    // Initiate the call to Indian police emergency number
+    window.location.href = "tel:100";
+    // Reset back to idle after a short delay
+    setTimeout(() => setCallState("idle"), 4000);
+  };
+
+  const handleCancel = () => {
+    setCallState("idle");
+  };
+
+  return (
+    <div className="lt-police-call-wrapper">
+      {callState === "idle" && (
+        <button className="lt-police-call-btn" onClick={handlePress}>
+          <span className="lt-police-call-icon">📞</span>
+          <div className="lt-police-call-text">
+            <span className="lt-police-call-title">Call Police</span>
+            <span className="lt-police-call-sub">Dial 100 instantly</span>
+          </div>
+          <span className="lt-police-call-badge">100</span>
+        </button>
+      )}
+
+      {callState === "confirm" && (
+        <div className="lt-police-confirm">
+          <p className="lt-police-confirm-msg">
+            📞 Call <strong>Police (100)</strong> now?
+          </p>
+          <div className="lt-police-confirm-btns">
+            <button className="lt-police-confirm-yes" onClick={handleConfirm}>
+              ✅ Yes, Call Now
+            </button>
+            <button className="lt-police-confirm-no" onClick={handleCancel}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {callState === "calling" && (
+        <div className="lt-police-calling">
+          <span className="lt-police-calling-pulse">📞</span>
+          <span>Calling Police (100)…</span>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -241,6 +302,10 @@ export default function LiveTracking() {
     axios.get(`${API}/rides/${rideId}`)
       .then(async (res) => {
         const d = res.data;
+        if (d.status !== "ACTIVE") {
+          setLoadError("This ride is already completed.");
+          return;
+        }
         setRide(d);
         if (d.startTime) {
           const elapsed = Math.floor((Date.now() - new Date(d.startTime).getTime()) / 1000);
@@ -290,13 +355,12 @@ export default function LiveTracking() {
     const maxLat = (Math.max(...lats) + 0.05).toFixed(6);
     const minLng = (Math.min(...lngs) - 0.05).toFixed(6);
     const maxLng = (Math.max(...lngs) + 0.05).toFixed(6);
-    // Fetch police stations AND hospitals/fire stations as safety landmarks
     const query = `[out:json][timeout:20];(
       node["amenity"="police"](${minLat},${minLng},${maxLat},${maxLng});
     );out body;`;
     try {
       const res = await axios.post("https://overpass.kumi.systems/api/interpreter", query,
-        { headers: { "Content-Type": "text/plain" }, timeout: 20000 });
+        { headers: { "Content-Type": "text/plain" }, timeout: 40000 });
       const nodes = res.data?.elements || [];
       const cumDists = buildCumDists(coords);
       const seen = new Set();
@@ -362,6 +426,7 @@ export default function LiveTracking() {
 
   useEffect(() => {
     if (!navigator.geolocation) return;
+    if (!ride || ride.status !== "ACTIVE") return;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const lat = pos.coords.latitude;
@@ -483,7 +548,6 @@ export default function LiveTracking() {
 
   const currentDistKm = parseFloat(distCovered) || 0;
 
-  // Stations ahead of current position, sorted by distance along route
   const stationsAhead = policeStations.filter(s => s.distKm > currentDistKm - 0.2);
   const stationsBehind = policeStations.filter(s => s.distKm <= currentDistKm - 0.2);
   const nextStation = stationsAhead[0] || null;
@@ -539,7 +603,7 @@ export default function LiveTracking() {
           <p>🚗 {ride.vehicleType || "Bike"}</p>
         </div>
 
-        {/* ── NEW: Police Station Panel ── */}
+        {/* Police Station Panel */}
         {policeStations.length > 0 && (
           <div className="lt-police-panel">
             <div className="lt-police-panel-header">
@@ -549,7 +613,6 @@ export default function LiveTracking() {
               </span>
             </div>
 
-            {/* Next station highlight card */}
             {nextStation && (
               <div className="lt-next-station-card">
                 <div className="lt-next-station-badge">NEXT</div>
@@ -568,9 +631,7 @@ export default function LiveTracking() {
               </div>
             )}
 
-            {/* Full route timeline */}
             <div className="lt-station-timeline">
-              {/* Start point */}
               <div className="lt-timeline-item lt-timeline-start">
                 <div className="lt-timeline-dot lt-dot-start">🏁</div>
                 <div className="lt-timeline-label">Start</div>
@@ -600,7 +661,6 @@ export default function LiveTracking() {
                 );
               })}
 
-              {/* Destination point */}
               <div className="lt-timeline-item lt-timeline-dest">
                 <div className="lt-timeline-dot lt-dot-dest">📍</div>
                 <div className="lt-timeline-label">{ride.destinationName || "Destination"}</div>
@@ -643,32 +703,20 @@ export default function LiveTracking() {
             </div>
             <MapContainer center={currentPos} zoom={15} style={{ height: "100%", width: "100%" }}>
               <MapFollower center={currentPos} autoFollow={autoFollow} />
-
-              {/* TileLayer MUST come first — everything else renders on top */}
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                 attribution='&copy; <a href="https://carto.com/">CARTO</a>'
               />
-
-              {/* Route polyline */}
               {route.length > 0 && (
                 <Polyline positions={route} pathOptions={{ color: "#f59e0b", weight: 5, opacity: 0.9 }} />
               )}
-
-              {/* Safety heatmap — independent toggle */}
               {showSafetyMap && policeStations.length > 0 && (
                 <SafetyLayer policeStations={policeStations} route={route} />
               )}
-
-              {/* Police station markers — independent toggle, works without heatmap */}
               {showPoliceMarkers && policeStations.length > 0 && (
                 <PoliceMarkers stations={policeStations} currentDistKm={currentDistKm} />
               )}
-
-              {/* Current position marker */}
               <Marker position={currentPos} />
-
-              {/* Destination marker */}
               {destRef.current && <Marker position={destRef.current} />}
             </MapContainer>
           </div>
@@ -684,6 +732,9 @@ export default function LiveTracking() {
           </div>
           {quickMsg && <p className="lt-quick-msg">{quickMsg}</p>}
         </div>
+
+        {/* ── Quick Police Call ── */}
+        <QuickPoliceCall />
 
         {/* Actions */}
         <div className="lt-actions">
