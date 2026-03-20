@@ -10,7 +10,7 @@ export const SafetyModeProvider = ({ children }) => {
   const [showCheck, setShowCheck] = useState(false);
   const [missedChecks, setMissedChecks] = useState(0);
 
-  const API = "http://localhost:5000/api";
+const API = `${import.meta.env.VITE_API_URL}/api`;
 
   useEffect(() => {
 
