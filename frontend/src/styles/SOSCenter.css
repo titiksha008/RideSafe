@@ -1,4 +1,4 @@
-/* SOSCenter.css */
+/* src/styles/SOSCenter.css */
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 
 :root {
@@ -275,7 +275,6 @@
   color: var(--sos-muted);
 }
 
-/* Color accents per dial button */
 .sos-dial-police    { border-color: rgba(59,130,246,0.2); }
 .sos-dial-police:hover { border-color: rgba(59,130,246,0.5); }
 .sos-dial-ambulance { border-color: rgba(239,68,68,0.2); }
@@ -597,53 +596,6 @@
   margin: 0;
 }
 
-/* ── Settings list ── */
-.sos-settings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sos-setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px 18px;
-  background: var(--sos-surface);
-  border: 1px solid var(--sos-border);
-  border-radius: var(--radius-md);
-}
-
-.sos-setting-disabled { opacity: 0.55; }
-
-.sos-setting-info { flex: 1; }
-
-.sos-setting-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--sos-text);
-  margin: 0 0 4px;
-}
-
-.sos-setting-desc {
-  font-size: 12.5px;
-  color: var(--sos-muted);
-  margin: 0;
-}
-
-.sos-coming-soon {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 3px 10px;
-  border-radius: 100px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--sos-border2);
-  color: var(--sos-muted);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
 /* ── Add contact modal ── */
 .sos-modal-overlay {
   position: fixed;
@@ -792,23 +744,14 @@
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .sos-page { padding: 20px 16px 80px; }
-
   .sos-hero { flex-direction: column; align-items: flex-start; gap: 20px; }
-
   .sos-hero-right { align-self: center; }
-
   .sos-title { font-size: 28px; }
-
   .sos-main-btn { width: 110px; height: 110px; }
-
   .sos-main-label { font-size: 20px; }
-
   .sos-tabs { gap: 2px; }
-
   .sos-tab { font-size: 12px; padding: 8px 6px; }
-
   .sos-section-header { flex-direction: column; gap: 10px; align-items: flex-start; }
-
   .sos-modal { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 }
 
@@ -822,7 +765,9 @@
   }
 }
 
-/* ── Paste these at the bottom of SOSCenter.css ── */
+/* ════════════════════════════════════════════════════════════════
+   ADDITIONS — Volume SOS, Features tab, Fake Call, Confirmation
+   ════════════════════════════════════════════════════════════════ */
 
 /* Armed status badge variant */
 .sos-status-armed {
@@ -900,9 +845,7 @@
   margin: 0 0 24px;
 }
 
-.sos-confirm-sub strong {
-  color: #fca5a5;
-}
+.sos-confirm-sub strong { color: #fca5a5; }
 
 .sos-confirm-dismiss {
   width: 100%;
@@ -918,6 +861,93 @@
   transition: background 0.2s;
 }
 
-.sos-confirm-dismiss:hover {
-  background: rgba(239, 68, 68, 0.25);
+.sos-confirm-dismiss:hover { background: rgba(239, 68, 68, 0.25); }
+
+/* Fake Call button in hero */
+.sos-fake-call-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding: 9px 18px;
+  background: transparent;
+  border: 1px solid var(--sos-border2);
+  border-radius: 100px;
+  color: var(--sos-muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+
+.sos-fake-call-btn:hover {
+  border-color: rgba(255,255,255,0.25);
+  color: var(--sos-text);
+  background: rgba(255,255,255,0.04);
+}
+
+/* Feature card (in Features tab) */
+.sos-feature-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--sos-surface);
+  border: 1px solid var(--sos-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+  text-decoration: none;
+}
+
+.sos-feature-card:hover {
+  border-color: var(--sos-border2);
+  background: var(--sos-surface2);
+}
+
+.sos-feature-icon {
+  font-size: 22px;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--sos-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sos-feature-info { flex: 1; }
+
+.sos-feature-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sos-text);
+  margin: 0 0 3px;
+}
+
+.sos-feature-desc {
+  font-size: 12.5px;
+  color: var(--sos-muted);
+  margin: 0;
+}
+
+.sos-feature-arrow {
+  font-size: 18px;
+  color: var(--sos-muted);
+}
+
+/* Clear history danger variant */
+.sos-btn-danger {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #fca5a5 !important;
+}
+
+.sos-btn-danger:hover {
+  border-color: rgba(239, 68, 68, 0.6) !important;
+  background: var(--sos-red-dim) !important;
+  color: #fca5a5 !important;
 }

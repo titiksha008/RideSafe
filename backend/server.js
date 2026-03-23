@@ -9,6 +9,7 @@ import rideRoutes from "./routes/rideRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import recordingRoutes from "./routes/recordingRoutes.js";
 import sosRoutes from "./routes/sosRoutes.js";
+import callAiRoutes from "./routes/callAiRoutes.js";
 
 dotenv.config();
 
@@ -19,7 +20,7 @@ connectDB();
 
 // middleware
 app.use(cors({
-  origin: "https://ride-safe-frontend.vercel.app"
+  origin: "https://ride-safe-frontend.vercel.app",
 }));
 app.use(express.json());
 
@@ -30,6 +31,7 @@ app.use("/api/rides", rideRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/recordings", recordingRoutes);
 app.use("/api/sos", sosRoutes);
+app.use("/api/call-ai", callAiRoutes);
 
 // serve uploaded audio
 app.use("/uploads", express.static("uploads"));

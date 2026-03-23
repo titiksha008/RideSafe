@@ -1,25 +1,13 @@
 // src/components/VolumeSOSCard.jsx
-//
-// Drop into SOSCenter.jsx:
-//   import VolumeSOSCard from "../components/VolumeSOSCard";
-//   <VolumeSOSCard armed={volumeArmed} onToggle={setVolumeArmed} />
-
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import "../styles/VolumeSOSCard.css";
 
 export default function VolumeSOSCard({ armed, onToggle }) {
-
   const [justTriggered, setJustTriggered] = useState(false);
 
-  // Called by the parent when SOS actually fires via volume button
-  // Parent should pass a `lastTrigger` timestamp prop to animate this
   useEffect(() => {
     if (!armed) setJustTriggered(false);
   }, [armed]);
-
-  const handleToggle = () => {
-    onToggle(!armed);
-  };
 
   return (
     <div className={`vsос-card ${armed ? "vsос-card-armed" : ""}`}>
@@ -35,14 +23,14 @@ export default function VolumeSOSCard({ armed, onToggle }) {
         </div>
         <button
           className={`vsос-toggle ${armed ? "vsос-toggle-on" : "vsос-toggle-off"}`}
-          onClick={handleToggle}
+          onClick={() => onToggle(!armed)}
           aria-label={armed ? "Disarm volume SOS" : "Arm volume SOS"}
         >
           <span className="vsос-toggle-knob" />
         </button>
       </div>
 
-      {/* Step indicators — always visible so user knows the pattern */}
+      {/* Step indicators */}
       <div className="vsос-steps">
         <div className={`vsос-step ${armed ? "vsос-step-armed" : ""}`}>
           <span className="vsос-step-num">1</span>

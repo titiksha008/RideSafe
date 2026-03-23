@@ -1,6 +1,5 @@
 // routes/sosRoutes.js
 import express from "express";
-import User from "../models/User.js";
 import SOSEvent from "../models/SOSEvent.js";
 import auth from "../middleware/authMiddleware.js";
 

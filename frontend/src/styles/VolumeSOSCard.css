@@ -1,4 +1,4 @@
-/* VolumeSOSCard.css */
+/* src/styles/VolumeSOSCard.css */
 
 .vsос-card {
   background: #0e1420;
@@ -69,13 +69,8 @@
   transition: background 0.25s;
 }
 
-.vsос-toggle-off {
-  background: rgba(255,255,255,0.1);
-}
-
-.vsос-toggle-on {
-  background: #ef4444;
-}
+.vsос-toggle-off { background: rgba(255,255,255,0.1); }
+.vsос-toggle-on  { background: #ef4444; }
 
 .vsос-toggle-knob {
   position: absolute;
@@ -147,13 +142,9 @@
   color: #fca5a5;
 }
 
-.vsос-step-armed .vsос-step-label {
-  color: #94a3b8;
-}
+.vsос-step-armed .vsос-step-label { color: #94a3b8; }
 
-.vsос-card-armed .vsос-step-arrow {
-  color: rgba(239, 68, 68, 0.4);
-}
+.vsос-card-armed .vsос-step-arrow { color: rgba(239, 68, 68, 0.4); }
 
 .vsос-step-result .vsос-step-num {
   font-size: 14px;
@@ -209,7 +200,6 @@
   margin: 10px 0 0;
   padding: 8px 12px;
   border-left: 2px solid rgba(239, 68, 68, 0.3);
-  border-radius: 0;
   line-height: 1.5;
 }
 

@@ -1,8 +1,8 @@
 // src/hooks/useVolumeButtonSOS.js
 //
-// Detects Volume Down pressed 3x within 2 seconds and calls onTrigger().
-// Works app-wide when imported in App.jsx.
-// Uses Wake Lock API to keep screen alive when armed (best-effort lock screen support).
+// Detects Volume Down pressed 3× within 2 seconds and calls onTrigger().
+// Works app-wide when imported in App.jsx or SOSCenter.jsx.
+// Uses Wake Lock API to keep screen alive when armed (best-effort).
 //
 // Usage:
 //   import useVolumeButtonSOS from "../hooks/useVolumeButtonSOS";
@@ -15,13 +15,12 @@ const WINDOW_MS        = 2000; // presses must happen within 2 seconds
 const VOLUME_DOWN_CODE = "VolumeDown";
 
 export default function useVolumeButtonSOS({ armed, onTrigger }) {
-  const pressTimesRef  = useRef([]); // timestamps of recent volume-down presses
-  const wakeLockRef    = useRef(null);
+  const pressTimesRef = useRef([]); // timestamps of recent volume-down presses
+  const wakeLockRef   = useRef(null);
 
   // ── Wake Lock — keeps screen alive so the listener stays active ──
   useEffect(() => {
     if (!armed) {
-      // Release wake lock when disarmed
       if (wakeLockRef.current) {
         wakeLockRef.current.release().catch(() => {});
         wakeLockRef.current = null;
@@ -59,11 +58,11 @@ export default function useVolumeButtonSOS({ armed, onTrigger }) {
     if (!armed) return;
 
     const handleKeyDown = (e) => {
-      // Match Volume Down on Android Chrome (key = "AudioVolumeDown" or code = "VolumeDown")
+      // Match Volume Down on Android Chrome
       const isVolumeDown =
-        e.key === "AudioVolumeDown" ||
+        e.key  === "AudioVolumeDown" ||
         e.code === VOLUME_DOWN_CODE  ||
-        e.key === "VolumeDown";
+        e.key  === "VolumeDown";
 
       if (!isVolumeDown) return;
 
