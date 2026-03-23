@@ -1,92 +1,86 @@
 // src/hooks/useVolumeButtonSOS.js
 //
-// Detects Volume Down pressed 3× within 2 seconds and calls onTrigger().
-// Works app-wide when imported in App.jsx or SOSCenter.jsx.
-// Uses Wake Lock API to keep screen alive when armed (best-effort).
+// Volume Down × 3 within 2 seconds → calls onTrigger().
+// Calls onProgress(count) for live UI feedback (0-3).
 //
-// Usage:
-//   import useVolumeButtonSOS from "../hooks/useVolumeButtonSOS";
-//   useVolumeButtonSOS({ armed: true, onTrigger: handleSOS });
+// IMPORTANT: Mobile browsers (Android Chrome, iOS Safari) block all volume key
+// events at the OS level — this hook does nothing on those devices.
+// isMobileUnsupported is returned so the UI can show a clear notice.
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 const REQUIRED_PRESSES = 3;
-const WINDOW_MS        = 2000; // presses must happen within 2 seconds
-const VOLUME_DOWN_CODE = "VolumeDown";
+const WINDOW_MS        = 2000;
 
-export default function useVolumeButtonSOS({ armed, onTrigger }) {
-  const pressTimesRef = useRef([]); // timestamps of recent volume-down presses
-  const wakeLockRef   = useRef(null);
+function detectMobile() {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
 
-  // ── Wake Lock — keeps screen alive so the listener stays active ──
+export default function useVolumeButtonSOS({ armed, onTrigger, onProgress }) {
+  const pressTimesRef       = useRef([]);
+  const wakeLockRef         = useRef(null);
+  const isMobileUnsupported = detectMobile();
+
+  // ── Wake Lock (desktop / tablet only) ────────────────────────
   useEffect(() => {
-    if (!armed) {
-      if (wakeLockRef.current) {
-        wakeLockRef.current.release().catch(() => {});
-        wakeLockRef.current = null;
-      }
-      return;
-    }
-
-    const acquireWakeLock = async () => {
+    if (!armed || isMobileUnsupported) return;
+    const acquire = async () => {
       try {
         if ("wakeLock" in navigator) {
           wakeLockRef.current = await navigator.wakeLock.request("screen");
-          // Re-acquire if released by browser (e.g. tab switch)
           wakeLockRef.current.addEventListener("release", () => {
-            if (armed) acquireWakeLock();
+            if (armed) acquire();
           });
         }
       } catch (e) {
-        // Wake lock not available — listener still works while screen is on
         console.warn("Wake lock unavailable:", e.message);
       }
     };
-
-    acquireWakeLock();
-
+    acquire();
     return () => {
-      if (wakeLockRef.current) {
-        wakeLockRef.current.release().catch(() => {});
-        wakeLockRef.current = null;
-      }
+      wakeLockRef.current?.release().catch(() => {});
+      wakeLockRef.current = null;
     };
-  }, [armed]);
+  }, [armed, isMobileUnsupported]);
 
   // ── Volume key listener ───────────────────────────────────────
+  const handleKeyDown = useCallback((e) => {
+    const isVolumeDown =
+      e.key  === "AudioVolumeDown" ||
+      e.code === "VolumeDown"      ||
+      e.key  === "VolumeDown";
+    if (!isVolumeDown) return;
+    e.preventDefault();
+
+    const now = Date.now();
+    pressTimesRef.current = pressTimesRef.current.filter(t => now - t < WINDOW_MS);
+    pressTimesRef.current.push(now);
+
+    const count = pressTimesRef.current.length;
+    onProgress?.(count);
+
+    if (count >= REQUIRED_PRESSES) {
+      pressTimesRef.current = [];
+      onProgress?.(0);
+      onTrigger();
+    }
+  }, [onTrigger, onProgress]);
+
   useEffect(() => {
-    if (!armed) return;
-
-    const handleKeyDown = (e) => {
-      // Match Volume Down on Android Chrome
-      const isVolumeDown =
-        e.key  === "AudioVolumeDown" ||
-        e.code === VOLUME_DOWN_CODE  ||
-        e.key  === "VolumeDown";
-
-      if (!isVolumeDown) return;
-
-      // Prevent default volume change — keeps the action discreet
-      e.preventDefault();
-
-      const now = Date.now();
-
-      // Prune presses outside the time window
-      pressTimesRef.current = pressTimesRef.current.filter(
-        (t) => now - t < WINDOW_MS
-      );
-
-      // Record this press
-      pressTimesRef.current.push(now);
-
-      // Check if we've hit the required count
-      if (pressTimesRef.current.length >= REQUIRED_PRESSES) {
-        pressTimesRef.current = []; // reset so it doesn't double-fire
-        onTrigger();
-      }
-    };
-
+    // Never attach on mobile — OS blocks events anyway, no point listening
+    if (!armed || isMobileUnsupported) {
+      pressTimesRef.current = [];
+      onProgress?.(0);
+      return;
+    }
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [armed, onTrigger]);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      pressTimesRef.current = [];
+      onProgress?.(0);
+    };
+  }, [armed, isMobileUnsupported, handleKeyDown, onProgress]);
+
+  return { isMobileUnsupported };
 }
