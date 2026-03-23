@@ -8,19 +8,26 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 
-const SHAKE_THRESHOLD = 15;   // lowered: sum of axis deltas to count as a shake
+// ── Tuning constants ─────────────────────────────────────────────────────────
+// accelerationIncludingGravity includes ~9.8 m/s² gravity on one axis at rest.
+// A hard shake produces a per-axis spike of 20–40+ on top of that.
+// We compare consecutive frames (delta), so gravity cancels out most of the
+// time — but we still need a threshold high enough to ignore walking (~5–8).
+const SHAKE_THRESHOLD = 20;   // delta magnitude per frame to count as a shake
 const REQUIRED_SHAKES = 3;
-const WINDOW_MS       = 4000; // widened: all 3 shakes must happen within this window
-const COOLDOWN_MS     = 250;  // lowered: minimum gap between two shake counts
+const WINDOW_MS       = 4000; // all 3 shakes must land within this window
+const COOLDOWN_MS     = 300;  // min gap between counted shakes (debounce)
 
 export default function useShakeSOS({ armed, onTrigger, onProgress }) {
   const shakeTimesRef = useRef([]);
   const lastShakeRef  = useRef(0);
-  const lastAccelRef  = useRef({ x: 0, y: 0, z: 0 });
-  const triggeredRef  = useRef(false); // prevent double-fire in same gesture
+  const lastAccelRef  = useRef(null);        // null = no previous frame yet
+  const triggeredRef  = useRef(false);
+  const listenerRef   = useRef(null);        // keep stable ref for removal
+
   const [permissionState, setPermissionState] = useState("unknown");
 
-  // ── Detect permission model on mount ─────────────────────────────────────
+  // ── Detect permission model on mount ──────────────────────────────────────
   useEffect(() => {
     if (!window.DeviceMotionEvent) {
       setPermissionState("unavailable");
@@ -28,33 +35,42 @@ export default function useShakeSOS({ armed, onTrigger, onProgress }) {
     }
 
     if (typeof DeviceMotionEvent.requestPermission === "function") {
-      // iOS 13+ — check if permission was already granted in a previous session
-      // We can't read the current state without calling requestPermission(), but we
-      // can fire a one-time test listener: if the browser delivers an event within
-      // 200ms, permission is already granted (no dialog was shown).
+      // iOS 13+ path.
+      // We CANNOT know whether permission was previously granted without
+      // calling requestPermission() (which would show a dialog immediately).
+      // Instead, listen for ONE devicemotion event with a generous 500 ms
+      // window — if iOS fires one, permission is already granted.
       let resolved = false;
+
       const testHandler = () => {
-        if (!resolved) {
-          resolved = true;
-          setPermissionState("granted");
-          window.removeEventListener("devicemotion", testHandler);
-        }
+        if (resolved) return;
+        resolved = true;
+        setPermissionState("granted");
+        window.removeEventListener("devicemotion", testHandler);
       };
+
       window.addEventListener("devicemotion", testHandler, { passive: true });
-      setTimeout(() => {
+
+      // 500 ms is enough for iOS to fire the first event if permission exists.
+      // 300 ms was occasionally too short on older devices.
+      const timer = setTimeout(() => {
         window.removeEventListener("devicemotion", testHandler);
         if (!resolved) {
-          // No event arrived → permission not yet granted
-          setPermissionState("prompt");
+          setPermissionState("prompt"); // user hasn't granted yet
         }
-      }, 300);
+      }, 500);
+
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener("devicemotion", testHandler);
+      };
     } else {
-      // Android / desktop — permission not required
+      // Android / desktop — no permission gate
       setPermissionState("granted");
     }
   }, []);
 
-  // ── iOS permission request (must be called from a user-gesture handler) ──
+  // ── iOS permission request (MUST be called inside a user-gesture handler) ─
   const requestPermission = useCallback(async () => {
     if (typeof DeviceMotionEvent?.requestPermission === "function") {
       try {
@@ -63,26 +79,37 @@ export default function useShakeSOS({ armed, onTrigger, onProgress }) {
         setPermissionState(ok ? "granted" : "denied");
         return ok;
       } catch (err) {
+        // User dismissed or browser threw (e.g. called outside gesture)
         console.warn("DeviceMotion permission error:", err);
         setPermissionState("denied");
         return false;
       }
     }
-    // Android — always granted
+    // Android / desktop — always granted
     setPermissionState("granted");
     return true;
   }, []);
 
-  // ── Motion handler ────────────────────────────────────────────────────────
-  const handleMotion = useCallback(
+  // ── Motion handler (stable reference via ref) ─────────────────────────────
+  const handleMotionRef = useRef(null);
+  handleMotionRef.current = useCallback(
     (e) => {
-      // Prefer accelerationIncludingGravity for broadest device support
-      const acc = e.accelerationIncludingGravity || e.acceleration;
+      // Prefer accelerationIncludingGravity — available on all mobile browsers.
+      // Pure `acceleration` (gravity-subtracted) is unreliable on many Androids.
+      const acc =
+        e.accelerationIncludingGravity ||
+        e.acceleration;
       if (!acc) return;
 
       const { x = 0, y = 0, z = 0 } = acc;
-      const prev = lastAccelRef.current;
 
+      // First frame — nothing to compare against yet
+      if (!lastAccelRef.current) {
+        lastAccelRef.current = { x, y, z };
+        return;
+      }
+
+      const prev  = lastAccelRef.current;
       const delta =
         Math.abs(x - prev.x) +
         Math.abs(y - prev.y) +
@@ -95,7 +122,7 @@ export default function useShakeSOS({ armed, onTrigger, onProgress }) {
       if (delta > SHAKE_THRESHOLD && now - lastShakeRef.current > COOLDOWN_MS) {
         lastShakeRef.current = now;
 
-        // Prune shakes outside the time window
+        // Drop shakes outside the rolling window
         shakeTimesRef.current = shakeTimesRef.current.filter(
           (t) => now - t < WINDOW_MS
         );
@@ -107,7 +134,7 @@ export default function useShakeSOS({ armed, onTrigger, onProgress }) {
         if (count >= REQUIRED_SHAKES && !triggeredRef.current) {
           triggeredRef.current = true;
 
-          // Show 3rd dot briefly before resetting
+          // Hold the 3rd dot for 600 ms so the user sees it, then reset
           setTimeout(() => {
             shakeTimesRef.current = [];
             triggeredRef.current  = false;
@@ -121,24 +148,37 @@ export default function useShakeSOS({ armed, onTrigger, onProgress }) {
     [onTrigger, onProgress]
   );
 
-  // ── Attach / detach listener based on arm state ───────────────────────────
+  // ── Attach / detach listener based on armed + permission ─────────────────
   useEffect(() => {
+    // Stable wrapper so we can removeEventListener with the exact same ref
+    const stableHandler = (e) => handleMotionRef.current(e);
+
     if (!armed || permissionState !== "granted") {
+      // Disarmed — clean up
+      if (listenerRef.current) {
+        window.removeEventListener("devicemotion", listenerRef.current);
+        listenerRef.current = null;
+      }
+      lastAccelRef.current  = null;
       shakeTimesRef.current = [];
       triggeredRef.current  = false;
       onProgress?.(0);
       return;
     }
 
-    window.addEventListener("devicemotion", handleMotion, { passive: true });
+    // Armed and permission granted — attach
+    listenerRef.current = stableHandler;
+    window.addEventListener("devicemotion", stableHandler, { passive: true });
 
     return () => {
-      window.removeEventListener("devicemotion", handleMotion);
+      window.removeEventListener("devicemotion", stableHandler);
+      listenerRef.current   = null;
+      lastAccelRef.current  = null;
       shakeTimesRef.current = [];
       triggeredRef.current  = false;
       onProgress?.(0);
     };
-  }, [armed, permissionState, handleMotion, onProgress]);
+  }, [armed, permissionState, onProgress]);
 
   return { requestPermission, permissionState };
 }
