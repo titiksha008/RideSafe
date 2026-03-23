@@ -8,11 +8,11 @@ const SOSEventSchema = new mongoose.Schema({
     required: true,
     index:    true,
   },
-  type: {
-    type:    String,
-    enum:    ["manual", "auto", "stopped", "dismissed", "shake", "volume", "crash", "fake_call"],
-    default: "manual",
-  },
+type: {
+  type:    String,
+  enum:    ["manual", "auto", "stopped", "dismissed", "shake", "volume", "crash", "countdown", "fake_call"],
+  default: "manual",
+},
   location: {
     lat: { type: Number, default: null },
     lng: { type: Number, default: null },
