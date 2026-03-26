@@ -521,7 +521,7 @@ import useVolumeButtonSOS from "../hooks/useVolumeButtonSOS";
 import useShakeSOS        from "../hooks/useShakeSOS";
 import useCountdownSOS    from "../hooks/useCountdownSOS";
 
-import "../styles/SOScenter.css";
+import "../styles/SOSCenter.css";
 
 const API = `${import.meta.env.VITE_API_URL}/api`;
 
