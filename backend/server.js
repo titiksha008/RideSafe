@@ -20,7 +20,10 @@ connectDB();
 
 // middleware
 app.use(cors({
-  origin: "https://ride-safe-frontend.vercel.app",
+  origin: [
+    "https://ride-safe-frontend.vercel.app"
+  ],
+  credentials: true
 }));
 app.use(express.json());
 
