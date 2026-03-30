@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // ← FIX 1: import useLocation
 import Navbar from "../components/Navbar";
 import "../styles/Dashboard.css";
 
 const API = `${import.meta.env.VITE_API_URL}/api`;
 
-// FIX: Check all possible token key names — must match what your login page saves
 function getToken() {
   return (
     localStorage.getItem("token") ||
@@ -45,24 +44,25 @@ function getGreeting() {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation(); // ← FIX 2: track location changes
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  // ── FIX 3: Wrap fetch in useCallback so it can be called manually too ──
+  const fetchDashboard = useCallback(() => {
     const token = getToken();
-
-    // FIX: Debug log so you can see exactly what's happening
     console.log("Dashboard: token found =", token ? "YES" : "NO", "| value:", token);
 
     if (!token) {
       console.warn("No token found — redirecting to login");
       setLoading(false);
-      // FIX: Use the correct route path for your login page
-      // Change "/login" below to match your actual auth route (e.g. "/auth", "/signin")
       navigate("/login");
       return;
     }
+
+    setLoading(true);
+    setError("");
 
     axios
       .get(`${API}/dashboard`, {
@@ -74,56 +74,66 @@ export default function Dashboard() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Dashboard API error:", err.response?.status, err.response?.data || err.message);
-
-        // FIX: Handle 401/403 specifically — token expired or invalid
+        console.error(
+          "Dashboard API error:",
+          err.response?.status,
+          err.response?.data || err.message
+        );
         if (err.response?.status === 401 || err.response?.status === 403) {
-          // Clear bad token and redirect to login
           localStorage.removeItem("token");
           localStorage.removeItem("authToken");
           localStorage.removeItem("jwt");
           sessionStorage.removeItem("token");
-          navigate("/login"); // change to your actual login route
+          navigate("/login");
           return;
         }
-
         setError(
           err.response?.data?.message ||
-          `Failed to load dashboard (${err.response?.status || "network error"})`
+            `Failed to load dashboard (${err.response?.status || "network error"})`
         );
         setLoading(false);
       });
   }, [navigate]);
 
-  if (loading) return (
-    <>
-      <Navbar />
-      <div className="db-container db-loading">
-        <div className="db-spinner" />
-        <p>Loading your dashboard…</p>
-      </div>
-    </>
-  );
+  // ── FIX 4: Re-fetch every time this page is navigated to ───────────────
+  // location.key changes on every navigation, even back to the same route.
+  // This ensures stale "activeRide" data is never shown after stopping a ride.
+  useEffect(() => {
+    fetchDashboard();
+  }, [location.key, fetchDashboard]);
 
-  if (error) return (
-    <>
-      <Navbar />
-      <div className="db-container db-loading">
-        <p style={{ color: "#fca5a5" }}>{error}</p>
-        <button
-          style={{ marginTop: 16, padding: "8px 20px", cursor: "pointer" }}
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-      </div>
-    </>
-  );
+  if (loading)
+    return (
+      <>
+        <Navbar />
+        <div className="db-container db-loading">
+          <div className="db-spinner" />
+          <p>Loading your dashboard…</p>
+        </div>
+      </>
+    );
+
+  if (error)
+    return (
+      <>
+        <Navbar />
+        <div className="db-container db-loading">
+          <p style={{ color: "#fca5a5" }}>{error}</p>
+          <button
+            style={{ marginTop: 16, padding: "8px 20px", cursor: "pointer" }}
+            onClick={fetchDashboard} // ← FIX 5: Retry calls fetchDashboard directly
+          >
+            Retry
+          </button>
+        </div>
+      </>
+    );
 
   if (!data) return null;
 
   const { user, stats, recentRides } = data;
-  const isNight = new Date().getHours() >= 22 || new Date().getHours() < 5;
+  const isNight =
+    new Date().getHours() >= 22 || new Date().getHours() < 5;
 
   return (
     <>
@@ -134,26 +144,31 @@ export default function Dashboard() {
         <div className="db-banner">
           <div className="db-banner-left">
             <p className="db-greeting">{getGreeting()},</p>
-            <h1 className="db-name">{user.firstName} {user.lastName} 👋</h1>
+            <h1 className="db-name">
+              {user.firstName} {user.lastName} 👋
+            </h1>
             <p className="db-sub">
               {stats.activeRide
                 ? "⚡ You have an active ride in progress"
                 : isNight
-                  ? "🌙 Stay safe tonight. Night rider mode is " + (user.nightRider ? "on" : "off") + "."
-                  : "Ready for your next ride? Stay safe out there."}
+                ? "🌙 Stay safe tonight. Night rider mode is " +
+                  (user.nightRider ? "on" : "off") +
+                  "."
+                : "Ready for your next ride? Stay safe out there."}
             </p>
           </div>
           <div className="db-avatar">
-            {user.profilePhoto
-              ? <img src={user.profilePhoto} alt="avatar" />
-              : <div className="db-avatar-letter">
-                  {user.firstName?.[0]?.toUpperCase() || "?"}
-                </div>
-            }
+            {user.profilePhoto ? (
+              <img src={user.profilePhoto} alt="avatar" />
+            ) : (
+              <div className="db-avatar-letter">
+                {user.firstName?.[0]?.toUpperCase() || "?"}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Active Ride Banner */}
+        {/* Active Ride Banner — only shown when there truly is an active ride */}
         {stats.activeRide && (
           <div className="db-active-banner">
             <div className="db-active-dot" />
@@ -173,7 +188,9 @@ export default function Dashboard() {
           </div>
           <div className="db-stat-card db-stat-green">
             <div className="db-stat-icon">📏</div>
-            <div className="db-stat-value">{stats.totalDistance} <span>km</span></div>
+            <div className="db-stat-value">
+              {stats.totalDistance} <span>km</span>
+            </div>
             <div className="db-stat-label">Distance Covered</div>
           </div>
           <div className="db-stat-card db-stat-purple">
@@ -183,7 +200,9 @@ export default function Dashboard() {
           </div>
           <div className="db-stat-card db-stat-orange">
             <div className="db-stat-icon">🛡️</div>
-            <div className="db-stat-value">{stats.totalRides > 0 ? "Safe" : "—"}</div>
+            <div className="db-stat-value">
+              {stats.totalRides > 0 ? "Safe" : "—"}
+            </div>
             <div className="db-stat-label">Ride Status</div>
           </div>
         </div>
@@ -192,22 +211,34 @@ export default function Dashboard() {
         <div className="db-section">
           <h2 className="db-section-title">Quick Actions</h2>
           <div className="db-actions">
-            <button className="db-action-card db-action-primary" onClick={() => navigate("/start-ride")}>
+            <button
+              className="db-action-card db-action-primary"
+              onClick={() => navigate("/start-ride")}
+            >
               <span className="db-action-icon">🚀</span>
               <span className="db-action-label">Start New Ride</span>
               <span className="db-action-arrow">→</span>
             </button>
-            <button className="db-action-card" onClick={() => navigate("/profile")}>
+            <button
+              className="db-action-card"
+              onClick={() => navigate("/profile")}
+            >
               <span className="db-action-icon">👤</span>
               <span className="db-action-label">My Profile</span>
               <span className="db-action-arrow">→</span>
             </button>
-            <button className="db-action-card" onClick={() => navigate("/safety-center")}>
+            <button
+              className="db-action-card"
+              onClick={() => navigate("/safety-center")}
+            >
               <span className="db-action-icon">🛡️</span>
               <span className="db-action-label">Safety Center</span>
               <span className="db-action-arrow">→</span>
             </button>
-            <button className="db-action-card db-action-sos" onClick={() => navigate("/profile#sos")}>
+            <button
+              className="db-action-card db-action-sos"
+              onClick={() => navigate("/profile#sos")}
+            >
               <span className="db-action-icon">🆘</span>
               <span className="db-action-label">SOS</span>
               <span className="db-action-arrow">→</span>
@@ -222,7 +253,10 @@ export default function Dashboard() {
           {recentRides.length === 0 ? (
             <div className="db-empty">
               <p>🏍️ No rides yet. Start your first ride!</p>
-              <button className="db-start-btn" onClick={() => navigate("/start-ride")}>
+              <button
+                className="db-start-btn"
+                onClick={() => navigate("/start-ride")}
+              >
                 Start Ride
               </button>
             </div>
@@ -230,10 +264,16 @@ export default function Dashboard() {
             <>
               <div className="db-rides">
                 {recentRides.slice(0, 2).map((ride, i) => (
-                  <div key={ride._id} className="db-ride-card" style={{ animationDelay: `${i * 0.07}s` }}>
+                  <div
+                    key={ride._id}
+                    className="db-ride-card"
+                    style={{ animationDelay: `${i * 0.07}s` }}
+                  >
                     <div className="db-ride-icon">
-                      {ride.vehicleType === "car" ? "🚗"
-                        : ride.vehicleType === "scooter" ? "🛵"
+                      {ride.vehicleType === "car"
+                        ? "🚗"
+                        : ride.vehicleType === "scooter"
+                        ? "🛵"
                         : "🏍️"}
                     </div>
                     <div className="db-ride-info">
@@ -242,25 +282,35 @@ export default function Dashboard() {
                       </p>
                       <p className="db-ride-meta">
                         {ride.distance ? `${ride.distance} km` : "—"}
-                        {ride.expectedTime ? ` · ${ride.expectedTime} min` : ""}
-                        {" · "}{timeAgo(ride.createdAt)}
+                        {ride.expectedTime
+                          ? ` · ${ride.expectedTime} min`
+                          : ""}
+                        {" · "}
+                        {timeAgo(ride.createdAt)}
                       </p>
                     </div>
-                    <div className={`db-ride-status ${
-                      ride.status === "COMPLETED" ? "completed"
-                      : ride.status === "ACTIVE" ? "active"
-                      : "cancelled"
-                    }`}>
-                      {ride.status === "COMPLETED" ? "✓ Done"
-                        : ride.status === "ACTIVE" ? "⚡ Live"
+                    <div
+                      className={`db-ride-status ${
+                        ride.status === "COMPLETED"
+                          ? "completed"
+                          : ride.status === "ACTIVE"
+                          ? "active"
+                          : "cancelled"
+                      }`}
+                    >
+                      {ride.status === "COMPLETED"
+                        ? "✓ Done"
+                        : ride.status === "ACTIVE"
+                        ? "⚡ Live"
                         : "✕ Cancelled"}
                     </div>
+                    {/* ── FIX 6: Only show Rejoin for genuinely ACTIVE rides ── */}
                     {ride.status === "ACTIVE" && (
                       <button
                         className="db-rejoin-btn"
                         onClick={() => navigate(`/tracking/${ride._id}`)}
                       >
-                        Rejoin
+                        Rejoin →
                       </button>
                     )}
                   </div>
@@ -269,7 +319,10 @@ export default function Dashboard() {
 
               {recentRides.length > 2 && (
                 <div className="db-view-more">
-                  <button className="db-view-rides-btn" onClick={() => navigate("/rides")}>
+                  <button
+                    className="db-view-rides-btn"
+                    onClick={() => navigate("/rides")}
+                  >
                     View All Rides →
                   </button>
                 </div>
@@ -282,11 +335,16 @@ export default function Dashboard() {
         <div className="db-tip">
           <span className="db-tip-icon">💡</span>
           <p>
-            <strong>Safety tip:</strong> Always add emergency contacts before starting a night ride.
-            {" "}<span className="db-tip-link" onClick={() => navigate("/profile")}>Add contacts →</span>
+            <strong>Safety tip:</strong> Always add emergency contacts before
+            starting a night ride.{" "}
+            <span
+              className="db-tip-link"
+              onClick={() => navigate("/profile")}
+            >
+              Add contacts →
+            </span>
           </p>
         </div>
-
       </div>
     </>
   );
