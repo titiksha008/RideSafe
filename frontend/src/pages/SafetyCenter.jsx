@@ -5,10 +5,11 @@ import { shareLiveLocation } from "../utils/locationShare";
 import { useRecording } from "../context/RecordingContext.jsx";
 import { useSafetyMode } from "../context/SafetyModeContext";
 
+// ✅ ADD THIS
+import Navbar from "../components/Navbar";
+
 const SafetyCenter = () => {
-
   const navigate = useNavigate();
-
   const [toast, setToast] = useState("");
 
   const { isRecording, startRecording, stopRecording } = useRecording();
@@ -19,13 +20,11 @@ const SafetyCenter = () => {
     setTimeout(() => setToast(""), 3000);
   };
 
-
   const handleSafetyMode = () => {
-    if(!safetyMode){
-    enableSafetyMode();
-    showToast("🛡 Safety Mode enabled");
+    if (!safetyMode) {
+      enableSafetyMode();
+      showToast("🛡 Safety Mode enabled");
     }
-
     navigate("/safety-mode");
   };
 
@@ -38,103 +37,115 @@ const SafetyCenter = () => {
   };
 
   return (
-    <div className="safety-container">
+    <>
+      {/* ✅ NAVBAR ADDED HERE */}
+      <Navbar />
 
-      <button
-        className="page-back-button"
-        onClick={() => navigate(-1)}
-      >
-        ← Back
-      </button>
-
-      <h2 className="safety-title">Safety Center</h2>
-
-      <div className="safety-grid">
-
-        <button className="safety-card safety-sos" onClick={handleSOS}>
-          <span className="safety-icon">🚨</span>
-          <div className="safety-text">
-            <span className="safety-label">Emergency SOS</span>
-            <span className="safety-desc">Trigger emergency alert</span>
-          </div>
-        </button>
-
+      <div className="safety-container">
         <button
-          className="safety-card"
-          onClick={() => shareLiveLocation(showToast)}
+          className="page-back-button"
+          onClick={() => navigate(-1)}
         >
-          <span className="safety-icon">📍</span>
-          <div className="safety-text">
-            <span className="safety-label">Share Live Location</span>
-            <span className="safety-desc">Let contacts track your location</span>
-          </div>
+          ← Back
         </button>
 
-        <button className="safety-card" onClick={handleContacts}>
-          <span className="safety-icon">👨‍👩‍👧</span>
-          <div className="safety-text">
-            <span className="safety-label">Emergency Contacts</span>
-            <span className="safety-desc">Manage trusted contacts</span>
-          </div>
-        </button>
+        <h2 className="safety-title">Safety Center</h2>
 
-        {/* RECORD AUDIO BUTTON */}
+        <div className="safety-grid">
 
-        <button
-          className="safety-card"
-          onClick={() => {
-            if (isRecording) {
-              stopRecording();
-              showToast("Recording stopped");
-            } else {
-              startRecording();
-              showToast("Recording started");
-            }
-          }}
-        >
+          {/* SOS */}
+          <button className="safety-card safety-sos" onClick={handleSOS}>
+            <span className="safety-icon">🚨</span>
+            <div className="safety-text">
+              <span className="safety-label">Emergency SOS</span>
+              <span className="safety-desc">Trigger emergency alert</span>
+            </div>
+          </button>
 
-          <span className="safety-icon">
-            {isRecording ? "⏹" : "🎙"}
-          </span>
+          {/* Live Location */}
+          <button
+            className="safety-card"
+            onClick={() => shareLiveLocation(showToast)}
+          >
+            <span className="safety-icon">📍</span>
+            <div className="safety-text">
+              <span className="safety-label">Share Live Location</span>
+              <span className="safety-desc">
+                Let contacts track your location
+              </span>
+            </div>
+          </button>
 
-          <div className="safety-text">
+          {/* Contacts */}
+          <button className="safety-card" onClick={handleContacts}>
+            <span className="safety-icon">👨‍👩‍👧</span>
+            <div className="safety-text">
+              <span className="safety-label">Emergency Contacts</span>
+              <span className="safety-desc">
+                Manage trusted contacts
+              </span>
+            </div>
+          </button>
 
-            <span className="safety-label">
-              {isRecording ? "Stop Recording" : "Record Audio"}
+          {/* RECORD AUDIO */}
+          <button
+            className="safety-card"
+            onClick={() => {
+              if (isRecording) {
+                stopRecording();
+                showToast("Recording stopped");
+              } else {
+                startRecording();
+                showToast("Recording started");
+              }
+            }}
+          >
+            <span className="safety-icon">
+              {isRecording ? "⏹" : "🎙"}
             </span>
 
-            <span className="safety-desc">
-              Capture safety evidence
-            </span>
+            <div className="safety-text">
+              <span className="safety-label">
+                {isRecording ? "Stop Recording" : "Record Audio"}
+              </span>
 
-          </div>
+              <span className="safety-desc">
+                Capture safety evidence
+              </span>
+            </div>
+          </button>
 
-        </button>
+          {/* View Recordings */}
+          <button
+            className="safety-card"
+            onClick={() => navigate("/recordings")}
+          >
+            <span className="safety-icon">🎧</span>
+            <div className="safety-text">
+              <span className="safety-label">View Recordings</span>
+              <span className="safety-desc">
+                Listen to saved audio
+              </span>
+            </div>
+          </button>
 
-        <button
-          className="safety-card"
-          onClick={() => navigate("/recordings")}
-        >
-          <span className="safety-icon">🎧</span>
-          <div className="safety-text">
-            <span className="safety-label">View Recordings</span>
-            <span className="safety-desc">Listen to saved audio</span>
-          </div>
-        </button>
+          {/* Safety Mode */}
+          <button className="safety-card" onClick={handleSafetyMode}>
+            <span className="safety-icon">🛡</span>
+            <div className="safety-text">
+              <span className="safety-label">Safety Mode</span>
+              <span className="safety-desc">
+                Enable safety monitoring
+              </span>
+            </div>
+          </button>
 
-        <button className="safety-card" onClick={handleSafetyMode}>
-          <span className="safety-icon">🛡</span>
-          <div className="safety-text">
-            <span className="safety-label">Safety Mode</span>
-            <span className="safety-desc">Enable safety monitoring</span>
-          </div>
-        </button>
+        </div>
 
+        {/* Toast */}
+        {toast && <div className="toast">{toast}</div>}
       </div>
-
-      {toast && <div className="toast">{toast}</div>}
-
-    </div>
+    </>
   );
 };
 

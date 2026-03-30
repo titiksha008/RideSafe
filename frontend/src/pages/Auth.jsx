@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import "../styles/auth.css";
 
-const API = import.meta.env.VITE_API_URL; // ✅ ADDED
+// ✅ USE ENV VARIABLE (OLD BACKEND STYLE)
+const API = import.meta.env.VITE_API_URL;
 
 function Auth() {
 
@@ -14,10 +15,9 @@ function Auth() {
 	const mode = params.get("mode");
 
 	const [isLogin, setIsLogin] = useState(mode !== "signup");
-	const [showPopup, setShowPopup] = useState(false);
 	const [showSignupPopup, setShowSignupPopup] = useState(false);
 	const [showPassword, setShowPassword] = useState(false);
-	const [confirmChecked, setConfirmChecked] = useState(false);
+	const [loading, setLoading] = useState(false);
 
 	const [formData, setFormData] = useState({
 		firstName: "",
@@ -27,6 +27,11 @@ function Auth() {
 		email: "",
 		password: ""
 	});
+
+	// ✅ Wake backend (Render cold start)
+	useEffect(() => {
+		axios.get(`${API}/api/health`).catch(() => {});
+	}, []);
 
 	const rules = {
 		length: /.{8,}/,
@@ -55,7 +60,6 @@ function Auth() {
 
 	const getPasswordStrength = (status) => {
 		const passed = Object.values(status).filter(Boolean).length;
-
 		if (passed <= 2) return "Weak";
 		if (passed === 3 || passed === 4) return "Medium";
 		if (passed === 5) return "Strong";
@@ -63,13 +67,14 @@ function Auth() {
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
+		setLoading(true);
 
 		try {
 
 			if (isLogin) {
 
 				const res = await axios.post(
-					`${API}/api/auth/login`, // ✅ FIXED
+					`${API}/api/auth/login`,
 					{
 						email: formData.email,
 						password: formData.password
@@ -77,12 +82,14 @@ function Auth() {
 				);
 
 				localStorage.setItem("token", res.data.token);
-				setShowPopup(true);
+
+				// ✅ Direct navigation (NEW FLOW)
+				navigate("/dashboard");
 
 			} else {
 
 				await axios.post(
-					`${API}/api/auth/signup`, // ✅ FIXED
+					`${API}/api/auth/signup`,
 					formData
 				);
 
@@ -94,13 +101,10 @@ function Auth() {
 
 			alert(error.response?.data?.message || "Something went wrong");
 
-		}
+		} finally {
 
-	};
+			setLoading(false);
 
-	const handleConfirm = () => {
-		if (confirmChecked) {
-			navigate("/dashboard");
 		}
 	};
 
@@ -118,13 +122,34 @@ function Auth() {
 				<form onSubmit={handleSubmit}>
 
 					{!isLogin && (
-						<> <input name="firstName" placeholder="First Name" onChange={handleChange} required />
+						<>
+							<input
+								name="firstName"
+								placeholder="First Name"
+								onChange={handleChange}
+								required
+							/>
 
-							<input name="lastName" placeholder="Last Name" onChange={handleChange} required />
+							<input
+								name="lastName"
+								placeholder="Last Name"
+								onChange={handleChange}
+								required
+							/>
 
-							<input name="age" type="number" placeholder="Age (optional)" onChange={handleChange} />
+							<input
+								name="age"
+								type="number"
+								placeholder="Age (optional)"
+								onChange={handleChange}
+							/>
 
-							<input name="contactNumber" placeholder="Contact Number" onChange={handleChange} required />
+							<input
+								name="contactNumber"
+								placeholder="Contact Number"
+								onChange={handleChange}
+								required
+							/>
 						</>
 					)}
 
@@ -136,48 +161,22 @@ function Auth() {
 						required
 					/>
 
-					{isLogin ? (
+					<div className="password-wrapper">
+						<input
+							name="password"
+							type={showPassword ? "text" : "password"}
+							placeholder="Password"
+							onChange={handleChange}
+							required
+						/>
 
-						<div className="password-wrapper">
-							<input
-								name="password"
-								type={showPassword ? "text" : "password"}
-								placeholder="Password"
-								onChange={handleChange}
-								required
-							/>
-
-							<span
-								className="toggle-password"
-								onClick={() => setShowPassword(!showPassword)}
-							>
-								{showPassword ? "Hide" : "Show"}
-							</span>
-						</div>
-
-					) : (
-
-						<div className="password-wrapper">
-
-							<input
-								name="password"
-								type={showPassword ? "text" : "password"}
-								placeholder="Password"
-								onChange={handleChange}
-								required
-							/>
-
-							<span
-								className="toggle-password"
-								onClick={() => setShowPassword(!showPassword)}
-
-							>
-
-								{showPassword ? "Hide" : "Show"} </span>
-
-						</div>
-
-					)}
+						<span
+							className="toggle-password"
+							onClick={() => setShowPassword(!showPassword)}
+						>
+							{showPassword ? "Hide" : "Show"}
+						</span>
+					</div>
 
 					{!isLogin && formData.password && (
 
@@ -215,8 +214,8 @@ function Auth() {
 
 					)}
 
-					<button type="submit">
-						{isLogin ? "Login" : "Sign Up"}
+					<button type="submit" disabled={loading}>
+						{loading ? "Please wait..." : isLogin ? "Login" : "Sign Up"}
 					</button>
 
 				</form>
@@ -225,41 +224,17 @@ function Auth() {
 					{isLogin ? "Don't have an account?" : "Already have an account?"}
 
 					<span onClick={() => setIsLogin(!isLogin)}>
-						{isLogin ? " Sign Up" : " Login"} </span>
-
+						{isLogin ? " Sign Up" : " Login"}
+					</span>
 				</p>
 
 				<button onClick={() => navigate("/")}>
-					Back </button>
+					Back
+				</button>
 
 			</div>
 
-			{showPopup && (
-
-				<div className="popup-overlay">
-
-					<div className="popup-box">
-
-						<h3>Login Successful</h3>
-						<p>Confirm to continue to dashboard</p>
-
-						<label className="confirm-check">
-							<input
-								type="checkbox"
-								onChange={(e) => setConfirmChecked(e.target.checked)}
-							/>
-							Continue to Dashboard
-						</label>
-
-						<button className="popup-btn" onClick={handleConfirm}>
-							Continue
-						</button>
-
-					</div>
-
-				</div>
-			)}
-
+			{/* Signup Popup */}
 			{showSignupPopup && (
 
 				<div className="popup-overlay">
@@ -275,14 +250,14 @@ function Auth() {
 								setShowSignupPopup(false);
 								setIsLogin(true);
 							}}
-
 						>
-
-							Continue </button>
+							Continue
+						</button>
 
 					</div>
 
 				</div>
+
 			)}
 
 		</div>
@@ -291,3 +266,5 @@ function Auth() {
 }
 
 export default Auth;
+
+
