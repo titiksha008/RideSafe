@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSafetyMode } from "../context/SafetyModeContext";
 import { useRecording } from "../context/RecordingContext";
-import "../styles/SafetyMode.css";
+import "../styles/safetyMode.css";
 
 const SafetyMode = () => {
 
