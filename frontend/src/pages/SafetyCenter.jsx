@@ -28,9 +28,10 @@ const SafetyCenter = () => {
     navigate("/safety-mode");
   };
 
-  const handleContacts = () => {
-    showToast("👨‍👩‍👧 Open Emergency Contacts");
-  };
+
+const handleContacts = () => {
+  navigate("/emergency-contacts");
+};
 
   const handleSOS = () => {
     showToast("🚨 Emergency SOS triggered");

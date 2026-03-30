@@ -11,8 +11,9 @@ import ProfileSafety  from "./pages/ProfileSafety";
 import Recordings     from "./pages/Recordings";
 import SafetyMode     from "./pages/SafetyMode";
 import SOSCenter      from "./pages/SOSCenter";
-import FakeCall       from "./pages/FakeCall";   // ← added
+import FakeCall       from "./pages/FakeCall";  
 import AllRides       from "./pages/AllRides";
+import EmergencyContacts from "./components/EmergencyContacts";
 
 import RecordingWidget   from "./components/RecordingWidget";
 import SafetyIndicator   from "./components/SafetyIndicator";
@@ -49,7 +50,8 @@ function AppContent() {
         <Route path="/safety-mode"    element={<SafetyMode />}    />
         <Route path="/rides"          element={<AllRides />}      />
         <Route path="/sos"            element={<SOSCenter />}     />
-        <Route path="/fake-call"      element={<FakeCall />}      />  {/* ← added */}
+        <Route path="/fake-call"      element={<FakeCall />}      />  
+        <Route path="/emergency-contacts" element={<EmergencyContacts />} />
       </Routes>
     </BrowserRouter>
   );
