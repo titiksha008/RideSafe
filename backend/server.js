@@ -9,7 +9,6 @@ import rideRoutes from "./routes/rideRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import recordingRoutes from "./routes/recordingRoutes.js";
 import sosRoutes from "./routes/sosRoutes.js";
-import callAiRoutes from "./routes/callAiRoutes.js";
 
 dotenv.config();
 
@@ -20,7 +19,7 @@ connectDB();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3000",
-  "https://ride-safe-frontend.vercel.app"
+  "https://ride-safe-frontend.vercel.app",
 ];
 
 app.use(
@@ -29,12 +28,12 @@ app.use(
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+        return callback(null, true);
       }
+
+      return callback(new Error("Not allowed by CORS"));
     },
-    credentials: true
+    credentials: true,
   })
 );
 
@@ -54,7 +53,6 @@ app.use("/api/rides", rideRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/recordings", recordingRoutes);
 app.use("/api/sos", sosRoutes);
-app.use("/api/call-ai", callAiRoutes);
 
 app.use("/uploads", express.static("uploads"));
 
