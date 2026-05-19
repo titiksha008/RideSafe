@@ -522,8 +522,10 @@ import useShakeSOS        from "../hooks/useShakeSOS";
 import useCountdownSOS    from "../hooks/useCountdownSOS";
 
 import "../styles/SOSCenter.css";
-
-const API = `${import.meta.env.VITE_API_URL}/api`;
+const API =
+  import.meta.env.MODE === "development"
+    ? "http://localhost:5000"
+    : "https://ridesafe-backend-0x1u.onrender.com";
 
 function getToken() {
   return (

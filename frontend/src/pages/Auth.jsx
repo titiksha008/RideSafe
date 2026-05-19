@@ -4,7 +4,10 @@ import axios from "axios";
 import "../styles/auth.css";
 
 // ✅ USE ENV VARIABLE
-const API = import.meta.env.VITE_API_URL;
+const API =
+  import.meta.env.MODE === "development"
+    ? "http://localhost:5000"
+    : "https://ridesafe-backend-0x1u.onrender.com";
 
 function Auth() {
 

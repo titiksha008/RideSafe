@@ -4,7 +4,10 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import "../styles/ProfileSafety.css";
 
-const API = `${import.meta.env.VITE_API_URL}/api`;
+const API =
+  import.meta.env.MODE === "development"
+    ? "http://localhost:5000"
+    : "https://ridesafe-backend-0x1u.onrender.com";
 
 const VEHICLE_OPTIONS = [
   { value: "bike",    label: "🏍️ Bike" },

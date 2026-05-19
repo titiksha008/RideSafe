@@ -11,8 +11,10 @@ import {
 import "leaflet/dist/leaflet.css";
 import "../styles/ride.css";
 import Navbar from "../components/Navbar";
-
-const API = `${import.meta.env.VITE_API_URL}/api`;
+const API =
+  import.meta.env.MODE === "development"
+    ? "http://localhost:5000"
+    : "https://ridesafe-backend-0x1u.onrender.com";
 const TRAFFIC_MULTIPLIER = 1.4;
 
 // Fallback Overpass mirrors in order — if one 429s, try the next
@@ -383,7 +385,7 @@ function StartRide() {
 
       console.log("Starting ride with payload:", payload);
 
-      const res = await axios.post(`${API}/rides/start`, payload, {
+      const res = await axios.post(`${API}/api/rides/start`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 

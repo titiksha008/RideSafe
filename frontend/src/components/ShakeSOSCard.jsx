@@ -111,7 +111,7 @@ export default function ShakeSOSCard({
                 ? `${shakeCount}/3 shakes — keep going!`
                 : "Armed — shake your phone 3× hard"
               : needsPrompt
-              ? "Tap below to allow motion &amp; arm"
+              ? "Tap below to allow motion & arm"
               : "Disarmed — tap below to activate"}
           </span>
         </div>
