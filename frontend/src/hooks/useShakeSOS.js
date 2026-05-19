@@ -1,10 +1,9 @@
-// src/hooks/useShakeSOS.js
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const SHAKE_THRESHOLD = 18;
-const REQUIRED_SHAKES = 3;
-const WINDOW_MS = 4000;
-const COOLDOWN_MS = 500;
+const SHAKE_THRESHOLD = 7;
+const REQUIRED_SHAKES = 2;
+const WINDOW_MS = 5000;
+const COOLDOWN_MS = 300;
 
 export default function useShakeSOS({ armed, onTrigger, onProgress }) {
   const [permissionState, setPermissionState] = useState("unknown");
@@ -83,11 +82,11 @@ export default function useShakeSOS({ armed, onTrigger, onProgress }) {
 
       const now = Date.now();
 
-      if (delta > SHAKE_THRESHOLD && now - lastShakeRef.current > COOLDOWN_MS) {
+      if (delta >= SHAKE_THRESHOLD && now - lastShakeRef.current >= COOLDOWN_MS) {
         lastShakeRef.current = now;
 
         shakeTimesRef.current = shakeTimesRef.current.filter(
-          (time) => now - time <= WINDOW_MS
+          (t) => now - t <= WINDOW_MS
         );
 
         shakeTimesRef.current.push(now);
