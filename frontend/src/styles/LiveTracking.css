@@ -816,3 +816,77 @@ body {
   background: rgba(255,255,255,0.1);
   color: #e5e7eb;
 }
+
+
+.lt-station-filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.lt-station-toggle-btn {
+  border: none;
+  background: #1d4ed8;
+  color: white;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.lt-station-toggle-btn:hover {
+  background: #2563eb;
+}
+
+/* Add this to src/styles/LiveTracking.css */
+
+.lt-station-filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.lt-station-toggle-btn {
+  border: none;
+  background: #1d4ed8;
+  color: #ffffff;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.lt-station-toggle-btn:hover {
+  background: #2563eb;
+}
+
+@media (max-width: 600px) {
+  .lt-station-filter-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .lt-station-toggle-btn {
+    width: 100%;
+  }
+}

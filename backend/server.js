@@ -9,6 +9,7 @@ import rideRoutes from "./routes/rideRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import recordingRoutes from "./routes/recordingRoutes.js";
 import sosRoutes from "./routes/sosRoutes.js";
+import videoRecordingRoutes from "./routes/videoRecordingRoutes.js";
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/rides", rideRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/recordings", recordingRoutes);
+app.use("/api/video-recordings", videoRecordingRoutes);
 app.use("/api/sos", sosRoutes);
 
 app.use("/uploads", express.static("uploads"));

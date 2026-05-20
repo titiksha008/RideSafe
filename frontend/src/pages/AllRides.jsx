@@ -1,15 +1,15 @@
-//AllRides.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
-import "../styles/Dashboard.css";
+import "../styles/dashboard.css";
 
-
-const API = `${import.meta.env.VITE_API_URL}/api`;
+const API = "https://cab-safety.onrender.com/api";
 
 function getToken() {
-  return localStorage.getItem("token");
+  return typeof window !== "undefined"
+    ? localStorage.getItem("token")
+    : null;
 }
 
 // ✅ helper for clean time
@@ -42,7 +42,7 @@ export default function AllRides() {
 
   return (
     <>
-      <Navbar />
+      {/* <Navbar /> */}
 
       <div className="db-container">
         <button
