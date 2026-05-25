@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSafetyMode } from "../context/SafetyModeContext";
 import { useRecording } from "../context/RecordingContext";
-import "../styles/safetyMode.css";
+import "../styles/SafetyMode.css";
 
 const SafetyMode = () => {
 
