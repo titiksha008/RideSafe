@@ -1,3 +1,5 @@
+
+
 import { createContext, useContext, useEffect, useState } from "react";
 import axios from "axios";
 
@@ -9,8 +11,10 @@ export const SafetyModeProvider = ({ children }) => {
   const [seconds, setSeconds] = useState(0);
   const [showCheck, setShowCheck] = useState(false);
   const [missedChecks, setMissedChecks] = useState(0);
+  const [batteryLevel, setBatteryLevel] = useState(null);
+  const [lowBatteryTriggered, setLowBatteryTriggered] = useState(false);
 
-const API = `${import.meta.env.VITE_API_URL}/api`;
+  const API = "https://ridesafe-backend-0x1u.onrender.com/api";
 
   useEffect(() => {
 
@@ -57,14 +61,82 @@ const API = `${import.meta.env.VITE_API_URL}/api`;
 
   useEffect(() => {
 
+  let battery;
+  let updateBattery;
+
+  const setupBattery = async () => {
+
+    if (!navigator.getBattery) {
+      console.log("Battery API not supported");
+      return;
+    }
+
+    battery = await navigator.getBattery();
+
+    updateBattery = () => {
+
+      const level = Math.round(battery.level * 100);
+
+      setBatteryLevel(level);
+
+      if (
+        safetyMode &&
+        level <= 15 &&
+        !lowBatteryTriggered
+      ) {
+
+        setLowBatteryTriggered(true);
+
+        if (navigator.vibrate) {
+          navigator.vibrate([300, 200, 300]);
+        }
+
+        alert(
+          `⚠️ Battery low (${level}%). Please charge your phone.`
+        );
+
+      }
+
+    };
+
+    updateBattery();
+
+    battery.addEventListener(
+      "levelchange",
+      updateBattery
+    );
+
+  };
+
+  setupBattery();
+
+  return () => {
+
+    if (battery && updateBattery) {
+
+      battery.removeEventListener(
+        "levelchange",
+        updateBattery
+      );
+
+    }
+
+  };
+
+  }, [safetyMode, lowBatteryTriggered]);
+
+  useEffect(() => {
+
     if (missedChecks >= 3) {
 
       navigator.geolocation.getCurrentPosition(async (pos) => {
 
         try {
 
-          const token = localStorage.getItem("token");
-
+          const token =
+            typeof window !== "undefined"
+              ? localStorage.getItem("token")
+              : null;
           const res = await axios.post(
             `${API}/profile/sos`,
             {
@@ -134,6 +206,7 @@ const API = `${import.meta.env.VITE_API_URL}/api`;
     setSeconds(0);
     setShowCheck(false);
     setMissedChecks(0);
+    setLowBatteryTriggered(false);
   };
 
   return (
@@ -141,6 +214,7 @@ const API = `${import.meta.env.VITE_API_URL}/api`;
       value={{
         safetyMode,
         seconds,
+        batteryLevel,
         showCheck,
         confirmSafe,
         reportIssue,

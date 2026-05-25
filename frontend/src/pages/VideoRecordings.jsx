@@ -3,8 +3,12 @@ import { useNavigate } from "react-router-dom";
 import "../styles/videoRecording.css";
 import authFetch from "../utils/authFetch";
 
-const VideoRecordings = () => {
+const API =
+  import.meta.env.MODE === "development"
+    ? "http://localhost:5000"
+    : "https://ridesafe-backend-0x1u.onrender.com";
 
+const VideoRecordings = () => {
   const navigate = useNavigate();
 
   const [recordings, setRecordings] = useState([]);
@@ -13,21 +17,15 @@ const VideoRecordings = () => {
   const [dateFilter, setDateFilter] = useState("");
 
   const fetchRecordings = async () => {
-
     try {
-
       const res = await authFetch("/api/video-recordings");
       const data = await res.json();
 
       setRecordings(data);
       setFiltered(data);
-
     } catch (err) {
-
       console.error("Error fetching video recordings:", err);
-
     }
-
   };
 
   useEffect(() => {
@@ -35,12 +33,11 @@ const VideoRecordings = () => {
   }, []);
 
   useEffect(() => {
-
     let data = [...recordings];
 
     if (dateFilter) {
       data = data.filter(
-        r => r.date === new Date(dateFilter).toLocaleDateString()
+        (r) => r.date === new Date(dateFilter).toLocaleDateString()
       );
     }
 
@@ -51,28 +48,22 @@ const VideoRecordings = () => {
     }
 
     setFiltered(data);
-
   }, [sort, dateFilter, recordings]);
 
   const deleteRecording = async (id) => {
-
     try {
+      await authFetch(`/api/video-recordings/${id}`, {
+        method: "DELETE",
+      });
 
-      authFetch(`/api/video-recordings/${id}`, { method: "DELETE" });
       fetchRecordings();
-
     } catch (err) {
-
       console.error("Delete failed:", err);
-
     }
-
   };
 
   return (
-
     <div className="video-rec-container">
-
       <button className="video-rec-back-btn" onClick={() => navigate(-1)}>
         ← Back
       </button>
@@ -80,7 +71,6 @@ const VideoRecordings = () => {
       <h2 className="video-rec-title">Video Recordings</h2>
 
       <div className="video-rec-controls">
-
         <select value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
@@ -88,9 +78,9 @@ const VideoRecordings = () => {
 
         <input
           type="date"
+          value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
         />
-
       </div>
 
       {filtered.length === 0 && (
@@ -98,26 +88,28 @@ const VideoRecordings = () => {
       )}
 
       <div className="video-rec-list">
-
         {filtered.map((rec) => (
-
           <div className="video-rec-card" key={rec._id}>
-
-            {/* Small video on the left */}
             <video
               controls
-              src={`https://cab-safety.onrender.com/${rec.fileUrl}`}
+              src={`${API}/${rec.fileUrl}`}
               className="video-rec-thumb"
             />
 
-            {/* Info + delete on the right */}
             <div className="video-rec-right">
-
               <div className="video-rec-info">
-                <p><strong>Date:</strong> {rec.date}</p>
-                <p><strong>Start:</strong> {rec.startTime}</p>
-                <p><strong>End:</strong> {rec.endTime}</p>
-                <p><strong>Duration:</strong> {rec.duration}s</p>
+                <p>
+                  <strong>Date:</strong> {rec.date}
+                </p>
+                <p>
+                  <strong>Start:</strong> {rec.startTime}
+                </p>
+                <p>
+                  <strong>End:</strong> {rec.endTime}
+                </p>
+                <p>
+                  <strong>Duration:</strong> {rec.duration}s
+                </p>
               </div>
 
               <button
@@ -126,19 +118,12 @@ const VideoRecordings = () => {
               >
                 Delete
               </button>
-
             </div>
-
           </div>
-
         ))}
-
       </div>
-
     </div>
-
   );
-
 };
 
 export default VideoRecordings;

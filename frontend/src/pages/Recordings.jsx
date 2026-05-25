@@ -9,7 +9,6 @@ const API =
     : "https://ridesafe-backend-0x1u.onrender.com";
 
 const Recordings = () => {
-
   const navigate = useNavigate();
 
   const [recordings, setRecordings] = useState([]);
@@ -18,21 +17,15 @@ const Recordings = () => {
   const [dateFilter, setDateFilter] = useState("");
 
   const fetchRecordings = async () => {
-
     try {
-
-      const res = await authFetch("/api/recordings")
+      const res = await authFetch("/api/recordings");
       const data = await res.json();
 
       setRecordings(data);
       setFiltered(data);
-
     } catch (err) {
-
       console.error("Error fetching recordings:", err);
-
     }
-
   };
 
   useEffect(() => {
@@ -40,12 +33,11 @@ const Recordings = () => {
   }, []);
 
   useEffect(() => {
-
     let data = [...recordings];
 
     if (dateFilter) {
       data = data.filter(
-        r => r.date === new Date(dateFilter).toLocaleDateString()
+        (r) => r.date === new Date(dateFilter).toLocaleDateString()
       );
     }
 
@@ -56,56 +48,39 @@ const Recordings = () => {
     }
 
     setFiltered(data);
-
   }, [sort, dateFilter, recordings]);
 
-
   const deleteRecording = async (id) => {
-
     try {
-
-      authFetch(`/api/recordings/${id}`,
-        { method: "DELETE" }
-      );
+      await authFetch(`/api/recordings/${id}`, {
+        method: "DELETE",
+      });
 
       fetchRecordings();
-
     } catch (err) {
-
       console.error("Delete failed:", err);
-
     }
-
   };
 
   return (
-
     <div className="recordings-container">
-
-      <button
-        className="back-btn"
-        onClick={() => navigate(-1)}
-      >
+      <button className="back-btn" onClick={() => navigate(-1)}>
         ← Back
       </button>
 
       <h2 className="recordings-title">Audio Recordings</h2>
 
       <div className="controls">
-
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-        >
+        <select value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
         </select>
 
         <input
           type="date"
+          value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
         />
-
       </div>
 
       {filtered.length === 0 && (
@@ -113,24 +88,24 @@ const Recordings = () => {
       )}
 
       <div className="recordings-list">
-
         {filtered.map((rec) => (
-
           <div className="recording-card" key={rec._id}>
-
             <div className="recording-info">
-
-              <p><strong>Date:</strong> {rec.date}</p>
-              <p><strong>Start:</strong> {rec.startTime}</p>
-              <p><strong>End:</strong> {rec.endTime}</p>
-              <p><strong>Duration:</strong> {rec.duration}s</p>
-
+              <p>
+                <strong>Date:</strong> {rec.date}
+              </p>
+              <p>
+                <strong>Start:</strong> {rec.startTime}
+              </p>
+              <p>
+                <strong>End:</strong> {rec.endTime}
+              </p>
+              <p>
+                <strong>Duration:</strong> {rec.duration}s
+              </p>
             </div>
 
-            <audio
-              controls
-              src={`${API}/${rec.fileUrl}`}  // ✅ FIXED ONLY THIS LINE
-            />
+            <audio controls src={`${API}/${rec.fileUrl}`} />
 
             <button
               className="delete-btn"
@@ -138,17 +113,11 @@ const Recordings = () => {
             >
               Delete
             </button>
-
           </div>
-
         ))}
-
       </div>
-
     </div>
-
   );
-
 };
 
 export default Recordings;

@@ -40,6 +40,8 @@ app.use(
 
 app.use(express.json());
 
+app.use("/uploads", express.static("uploads"));
+
 app.get("/", (req, res) => {
   res.send("Cab Safety Backend Running");
 });
@@ -55,8 +57,6 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/recordings", recordingRoutes);
 app.use("/api/video-recordings", videoRecordingRoutes);
 app.use("/api/sos", sosRoutes);
-
-app.use("/uploads", express.static("uploads"));
 
 const PORT = process.env.PORT || 5000;
 
